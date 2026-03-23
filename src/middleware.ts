@@ -28,4 +28,5 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: ["/admin/:path*", "/my-bookings/:path*"],
+  // Note: /setup and /api/setup are NOT listed here — they bypass NextAuth entirely
 };
