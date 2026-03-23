@@ -54,15 +54,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user?.id) {
+        token.id = user.id;
+      }
+      // Always refresh role from database to pick up role changes
+      if (token.id) {
         const dbUser = await db
           .select({ role: users.role })
           .from(users)
-          .where(eq(users.id, user.id))
+          .where(eq(users.id, token.id as string))
           .limit(1);
         token.role = dbUser[0]?.role ?? "user";
-        token.id = user.id;
       }
       return token;
     },
