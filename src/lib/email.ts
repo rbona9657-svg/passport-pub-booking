@@ -1,7 +1,16 @@
-import { Resend } from "resend";
+import { createTransport } from "nodemailer";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const from = process.env.RESEND_FROM_EMAIL || "bookings@passportpub.hu";
+const transporter = createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+const from = process.env.EMAIL_FROM || process.env.SMTP_USER || "bookings@passportpub.hu";
 
 interface BookingEmailData {
   reservationName: string;
@@ -44,8 +53,8 @@ function bookingDetailsBlock(data: BookingEmailData) {
 }
 
 export async function sendBookingPending(to: string, data: BookingEmailData) {
-  return resend.emails.send({
-    from,
+  return transporter.sendMail({
+    from: `"Passport Pub" <${from}>`,
     to,
     subject: "Booking Received - Passport Pub",
     html: emailWrapper(`
@@ -64,8 +73,8 @@ export async function sendBookingPending(to: string, data: BookingEmailData) {
 }
 
 export async function sendBookingApproved(to: string, data: BookingEmailData) {
-  return resend.emails.send({
-    from,
+  return transporter.sendMail({
+    from: `"Passport Pub" <${from}>`,
     to,
     subject: "Booking Confirmed! - Passport Pub",
     html: emailWrapper(`
@@ -79,7 +88,7 @@ export async function sendBookingApproved(to: string, data: BookingEmailData) {
         </p>
         ${bookingDetailsBlock(data)}
         <div style="text-align: center; margin-top: 20px;">
-          <p style="color: #475569; font-size: 15px; font-weight: 600;">See you at Passport Pub! 🍻</p>
+          <p style="color: #475569; font-size: 15px; font-weight: 600;">See you at Passport Pub!</p>
         </div>
       </div>
     `),
@@ -87,8 +96,8 @@ export async function sendBookingApproved(to: string, data: BookingEmailData) {
 }
 
 export async function sendBookingRejected(to: string, data: BookingEmailData, reason: string) {
-  return resend.emails.send({
-    from,
+  return transporter.sendMail({
+    from: `"Passport Pub" <${from}>`,
     to,
     subject: "Booking Update - Passport Pub",
     html: emailWrapper(`

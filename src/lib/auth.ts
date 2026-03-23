@@ -4,9 +4,19 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { Resend } from "resend";
+import { createTransport } from "nodemailer";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@passportpub.hu";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -24,12 +34,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   providers: [
     EmailProvider({
-      server: { host: "smtp.resend.com", port: 465, auth: { user: "resend", pass: process.env.RESEND_API_KEY || "" } },
-      from: process.env.RESEND_FROM_EMAIL || "noreply@passportpub.hu",
+      server: {
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: Number(process.env.SMTP_PORT || 587),
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      },
+      from: fromEmail,
       sendVerificationRequest: async ({ identifier: email, url }) => {
         try {
-          await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL!,
+          await transporter.sendMail({
+            from: `"Passport Pub" <${fromEmail}>`,
             to: email,
             subject: "Sign in to Passport Pub",
             html: `
@@ -54,11 +71,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       if (user?.id) {
         token.id = user.id;
       }
-      // Always refresh role from database to pick up role changes
       if (token.id) {
         const dbUser = await db
           .select({ role: users.role })
