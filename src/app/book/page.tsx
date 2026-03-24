@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parse } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
 import { PUB_HOURS } from "@/lib/constants";
 import { toMinutesSinceOpen } from "@/lib/validations";
@@ -107,7 +110,6 @@ export default function BookPage() {
   }, [floorPlanId, bookingDate, arrivalTime, departureTime]);
 
   const selectedTable = tables.find((t) => t.id === selectedTableId);
-  const today = new Date().toISOString().split("T")[0];
 
   // Check capacity when guest count or selected table changes
   useEffect(() => {
@@ -199,12 +201,30 @@ export default function BookPage() {
                   <CalendarDays className="h-4 w-4" />
                   Date
                 </Label>
-                <Input
-                  type="date"
-                  value={bookingDate}
-                  min={today}
-                  onChange={(e) => setBookingDate(e.target.value)}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal h-9"
+                    >
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      {bookingDate
+                        ? format(parse(bookingDate, "yyyy-MM-dd", new Date()), "PPP")
+                        : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      selected={bookingDate ? parse(bookingDate, "yyyy-MM-dd", new Date()) : undefined}
+                      onSelect={(date) => {
+                        if (date) {
+                          setBookingDate(format(date, "yyyy-MM-dd"));
+                        }
+                      }}
+                      fromDate={new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="flex-1 space-y-2">
                 <Label className="flex items-center gap-2">
