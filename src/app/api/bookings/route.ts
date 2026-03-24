@@ -109,13 +109,25 @@ export async function POST(req: NextRequest) {
       comment,
     };
 
-    // Send emails only if guest email provided
+    // Send emails and track result
+    let emailSent = false;
+    let emailError: string | null = null;
+
     if (guestEmail) {
-      sendBookingPending(guestEmail, emailData).catch(console.error);
+      try {
+        await sendBookingPending(guestEmail, emailData);
+        emailSent = true;
+      } catch (err) {
+        console.error("Failed to send pending email:", err);
+        emailError = err instanceof Error ? err.message : "Failed to send confirmation email";
+      }
+      // Admin notification is non-blocking
       sendAdminNewBooking(booking.id, emailData, guestEmail).catch(console.error);
+    } else {
+      emailError = "No email address provided";
     }
 
-    return NextResponse.json(booking, { status: 201 });
+    return NextResponse.json({ ...booking, emailSent, emailError }, { status: 201 });
   } catch (error) {
     console.error("Error creating booking:", error);
     const message = error instanceof Error ? error.message : "Failed to create booking";

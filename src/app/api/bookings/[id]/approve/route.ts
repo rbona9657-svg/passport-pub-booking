@@ -16,18 +16,29 @@ async function handleApproval(id: string) {
 
   await updateBookingStatus(id, "approved");
 
-  // Send approval email (non-blocking)
+  // Send approval email and track result
   const email = booking.user?.email || booking.guestEmail;
+  let emailSent = false;
+  let emailError: string | null = null;
+
   if (email) {
-    sendBookingApproved(email, {
-      reservationName: booking.reservationName,
-      bookingDate: booking.bookingDate,
-      arrivalTime: booking.arrivalTime,
-      departureTime: booking.departureTime,
-      guestCount: booking.guestCount,
-      tableNumber: booking.table?.tableNumber ?? "N/A",
-      comment: booking.comment,
-    }).catch(console.error);
+    try {
+      await sendBookingApproved(email, {
+        reservationName: booking.reservationName,
+        bookingDate: booking.bookingDate,
+        arrivalTime: booking.arrivalTime,
+        departureTime: booking.departureTime,
+        guestCount: booking.guestCount,
+        tableNumber: booking.table?.tableNumber ?? "N/A",
+        comment: booking.comment,
+      });
+      emailSent = true;
+    } catch (err) {
+      console.error("Failed to send approval email:", err);
+      emailError = err instanceof Error ? err.message : "Failed to send email";
+    }
+  } else {
+    emailError = "No email address found for this booking";
   }
 
   // Send push to user (non-blocking)
@@ -39,7 +50,7 @@ async function handleApproval(id: string) {
     }).catch(console.error);
   }
 
-  return { booking, status: 200 };
+  return { booking, status: 200, emailSent, emailError };
 }
 
 // POST - from admin panel
@@ -53,7 +64,11 @@ export async function POST(
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
-    return NextResponse.json(result.booking);
+    return NextResponse.json({
+      ...result.booking,
+      emailSent: result.emailSent,
+      emailError: result.emailError,
+    });
   } catch (error) {
     console.error("Error approving booking:", error);
     return NextResponse.json({ error: "Failed to approve booking" }, { status: 500 });

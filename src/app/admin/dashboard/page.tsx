@@ -57,7 +57,16 @@ export default function AdminDashboard() {
     try {
       const res = await fetch(`/api/bookings/${id}/approve`, { method: "POST" });
       if (res.ok) {
-        toast({ title: "Booking Approved", description: "The guest has been notified." });
+        const data = await res.json();
+        if (data.emailSent) {
+          toast({ title: "Booking Approved", description: "Confirmation email sent to the guest." });
+        } else {
+          toast({
+            title: "Booking Approved",
+            description: `Warning: ${data.emailError || "Confirmation email could not be sent."}`,
+            variant: "destructive",
+          });
+        }
         setBookings((prev) => prev.filter((b) => b.id !== id));
       } else {
         const data = await res.json();

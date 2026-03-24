@@ -31,25 +31,36 @@ export async function POST(
 
     const updated = await updateBookingStatus(id, "rejected", parsed.data.reason);
 
-    // Send rejection email (non-blocking)
+    // Send rejection email and track result
     const email = booking.user?.email || booking.guestEmail;
+    let emailSent = false;
+    let emailError: string | null = null;
+
     if (email) {
-      sendBookingRejected(
-        email,
-        {
-          reservationName: booking.reservationName,
-          bookingDate: booking.bookingDate,
-          arrivalTime: booking.arrivalTime,
-          departureTime: booking.departureTime,
-          guestCount: booking.guestCount,
-          tableNumber: booking.table?.tableNumber ?? "N/A",
-          comment: booking.comment,
-        },
-        parsed.data.reason
-      ).catch(console.error);
+      try {
+        await sendBookingRejected(
+          email,
+          {
+            reservationName: booking.reservationName,
+            bookingDate: booking.bookingDate,
+            arrivalTime: booking.arrivalTime,
+            departureTime: booking.departureTime,
+            guestCount: booking.guestCount,
+            tableNumber: booking.table?.tableNumber ?? "N/A",
+            comment: booking.comment,
+          },
+          parsed.data.reason
+        );
+        emailSent = true;
+      } catch (err) {
+        console.error("Failed to send rejection email:", err);
+        emailError = err instanceof Error ? err.message : "Failed to send email";
+      }
+    } else {
+      emailError = "No email address found for this booking";
     }
 
-    return NextResponse.json(updated);
+    return NextResponse.json({ ...updated, emailSent, emailError });
   } catch (error) {
     console.error("Error rejecting booking:", error);
     return NextResponse.json({ error: "Failed to reject booking" }, { status: 500 });
