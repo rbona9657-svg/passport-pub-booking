@@ -66,6 +66,7 @@ export default function FloorPlanCanvas({
   const [stageSize, setStageSize] = useState({ width: 800, height: 500 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
   const initialFitRef = useRef<{ scale: number; position: { x: number; y: number } } | null>(null);
 
   // Responsive sizing + auto-fit in booking mode
@@ -74,6 +75,9 @@ export default function FloorPlanCanvas({
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const containerWidth = rect.width;
+
+      const mobile = containerWidth < 768;
+      setIsMobile(mobile);
 
       if (mode === "booking" && tables.length > 0) {
         const bounds = getContentBounds(tables, visualElements);
@@ -304,9 +308,9 @@ export default function FloorPlanCanvas({
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={true}
-        onWheel={handleWheel}
-        onDragEnd={handleDragEnd}
+        draggable={isBooking ? isMobile : true}
+        onWheel={isBooking && !isMobile ? undefined : handleWheel}
+        onDragEnd={isBooking && !isMobile ? undefined : handleDragEnd}
       >
         {/* Background */}
         <Layer listening={false}>
@@ -344,8 +348,8 @@ export default function FloorPlanCanvas({
         </Layer>
       </Stage>
 
-      {/* Zoom controls for booking mode */}
-      {isBooking && (
+      {/* Zoom controls for booking mode - mobile only */}
+      {isBooking && isMobile && (
         <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
           <button
             onClick={zoomInFn}
