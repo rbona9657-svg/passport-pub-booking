@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import EmailProvider from "next-auth/providers/email";
-import CredentialsProvider from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/lib/db";
 import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
@@ -23,62 +22,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verifyRequest: "/auth/verify",
   },
   providers: [
-    CredentialsProvider({
-      name: "Admin Login",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = (credentials?.email as string)?.trim().toLowerCase();
-        const password = credentials?.password as string;
-
-        if (!email || !password) return null;
-
-        // Check password matches ADMIN_SETUP_TOKEN
-        const setupToken = process.env.ADMIN_SETUP_TOKEN;
-        if (!setupToken || password !== setupToken) return null;
-
-        // Check email is in ADMIN_EMAILS
-        const adminEmails = (process.env.ADMIN_EMAILS ?? "")
-          .split(",")
-          .map((e) => e.trim().toLowerCase());
-        if (!adminEmails.includes(email)) return null;
-
-        // Find or create the admin user
-        let dbUser = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, email))
-          .limit(1);
-
-        if (dbUser.length === 0) {
-          const inserted = await db
-            .insert(users)
-            .values({
-              email,
-              name: email.split("@")[0],
-              role: "admin",
-              emailVerified: new Date(),
-            })
-            .returning();
-          dbUser = inserted;
-        } else if (dbUser[0].role !== "admin") {
-          await db
-            .update(users)
-            .set({ role: "admin" })
-            .where(eq(users.id, dbUser[0].id));
-          dbUser[0].role = "admin";
-        }
-
-        return {
-          id: dbUser[0].id,
-          email: dbUser[0].email,
-          name: dbUser[0].name,
-          role: dbUser[0].role ?? "user",
-        };
-      },
-    }),
     EmailProvider({
       server: {},
       from: process.env.GMAIL_SENDER || "rbona9657@gmail.com",
@@ -109,35 +52,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      // Always allow credentials provider sign-ins
-      if (account?.provider === "credentials") {
-        return true;
-      }
-      return true;
-    },
-    async jwt({ token, user, account }) {
-      // On initial sign-in, persist user id and role from the authorize response
+    async jwt({ token, user }) {
       if (user?.id) {
         token.id = user.id;
-        // For credentials provider, use role from authorize directly
-        if (account?.provider === "credentials" && (user as Record<string, unknown>).role) {
-          token.role = (user as Record<string, unknown>).role as string;
-          return token;
-        }
       }
-      // For subsequent requests, look up role from DB
       if (token.id) {
-        try {
-          const dbUser = await db
-            .select({ role: users.role })
-            .from(users)
-            .where(eq(users.id, token.id as string))
-            .limit(1);
-          token.role = dbUser[0]?.role ?? "user";
-        } catch {
-          token.role = token.role ?? "user";
-        }
+        const dbUser = await db
+          .select({ role: users.role })
+          .from(users)
+          .where(eq(users.id, token.id as string))
+          .limit(1);
+        token.role = dbUser[0]?.role ?? "user";
       }
       return token;
     },

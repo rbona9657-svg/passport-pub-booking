@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +9,6 @@ import { Shield, ArrowLeft, LogIn } from "lucide-react";
 import Link from "next/link";
 
 export default function SignInPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,20 +20,22 @@ export default function SignInPage() {
     setError("");
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-        callbackUrl: "/admin/dashboard",
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (!result?.ok || result?.error) {
-        setError("Invalid email or password");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Invalid email or password");
         setLoading(false);
-      } else {
-        // Full page reload to pick up the new session cookie
-        window.location.href = "/admin/dashboard";
+        return;
       }
+
+      // Full page reload to pick up the new session cookie
+      window.location.href = "/admin/dashboard";
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
