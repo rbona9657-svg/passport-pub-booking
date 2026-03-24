@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { Group, Rect, Circle, Ellipse, Text } from "react-konva";
+import { Group, Rect, Circle, Ellipse, Text, Ring } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { PubTable } from "@/types";
 
@@ -11,7 +11,14 @@ const STATUS_COLORS: Record<string, string> = {
   booked: "#ef4444",
 };
 
-const SELECTED_STROKE = "#3b82f6";
+const STATUS_FILLS: Record<string, string> = {
+  available: "#166534",
+  pending: "#854d0e",
+  booked: "#991b1b",
+};
+
+const SELECTED_COLOR = "#3b82f6";
+const SELECTED_GLOW = "#60a5fa";
 const EDITOR_FILL = "#e2e8f0";
 const EDITOR_STROKE = "#94a3b8";
 const GRID_SIZE = 20;
@@ -38,19 +45,28 @@ export default function TableShape({
   const w = table.width ?? 80;
   const h = table.height ?? 80;
   const shape = table.shape ?? "rect";
+  const isBooking = mode === "booking";
 
-  const fill =
-    mode === "booking" && status ? STATUS_COLORS[status] : EDITOR_FILL;
-  const stroke = isSelected
-    ? SELECTED_STROKE
-    : mode === "booking" && status
-      ? STATUS_COLORS[status]
-      : EDITOR_STROKE;
-  const strokeWidth = isSelected ? 3 : 1.5;
+  // Colors
+  let fill: string;
+  let stroke: string;
+  let strokeWidth: number;
 
-  const isClickable =
-    mode === "booking" ? status !== "booked" : true;
-  const cursor = isClickable ? "pointer" : "default";
+  if (isBooking && isSelected) {
+    fill = SELECTED_COLOR;
+    stroke = SELECTED_GLOW;
+    strokeWidth = 4;
+  } else if (isBooking && status) {
+    fill = STATUS_FILLS[status] || STATUS_COLORS[status];
+    stroke = STATUS_COLORS[status];
+    strokeWidth = 2;
+  } else {
+    fill = EDITOR_FILL;
+    stroke = EDITOR_STROKE;
+    strokeWidth = 1.5;
+  }
+
+  const isClickable = isBooking ? status !== "booked" : true;
 
   const handleDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
@@ -65,68 +81,62 @@ export default function TableShape({
   );
 
   const handleClick = useCallback(() => {
-    if (isClickable && onSelect) {
-      onSelect();
-    }
+    if (isClickable && onSelect) onSelect();
   }, [isClickable, onSelect]);
 
-  const tableLabel = `T${table.tableNumber}`;
-  const seatLabel = `${table.seats}`;
-
-  const fillOpacity = mode === "booking" ? 0.85 : 1;
+  const tableLabel = table.tableNumber.startsWith("T") ? table.tableNumber : `T${table.tableNumber}`;
+  const seatLabel = `${table.seats} seats`;
 
   const renderShape = () => {
+    const shadowProps = isBooking && isSelected
+      ? { shadowColor: SELECTED_GLOW, shadowBlur: 20, shadowOpacity: 0.8 }
+      : { shadowColor: "rgba(0,0,0,0.3)", shadowBlur: 6, shadowOffsetY: 2 };
+
     switch (shape) {
       case "circle":
         return (
           <Circle
-            x={w / 2}
-            y={h / 2}
+            x={w / 2} y={h / 2}
             radius={Math.min(w, h) / 2}
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={strokeWidth}
-            opacity={fillOpacity}
-            shadowColor="rgba(0,0,0,0.15)"
-            shadowBlur={4}
-            shadowOffsetY={2}
+            fill={fill} stroke={stroke} strokeWidth={strokeWidth}
+            {...shadowProps}
           />
         );
       case "ellipse":
         return (
           <Ellipse
-            x={w / 2}
-            y={h / 2}
-            radiusX={w / 2}
-            radiusY={h / 2}
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={strokeWidth}
-            opacity={fillOpacity}
-            shadowColor="rgba(0,0,0,0.15)"
-            shadowBlur={4}
-            shadowOffsetY={2}
+            x={w / 2} y={h / 2}
+            radiusX={w / 2} radiusY={h / 2}
+            fill={fill} stroke={stroke} strokeWidth={strokeWidth}
+            {...shadowProps}
           />
         );
-      case "rect":
       default:
         return (
           <Rect
-            x={0}
-            y={0}
-            width={w}
-            height={h}
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={strokeWidth}
-            cornerRadius={8}
-            opacity={fillOpacity}
-            shadowColor="rgba(0,0,0,0.15)"
-            shadowBlur={4}
-            shadowOffsetY={2}
+            x={0} y={0} width={w} height={h}
+            fill={fill} stroke={stroke} strokeWidth={strokeWidth}
+            cornerRadius={10}
+            {...shadowProps}
           />
         );
     }
+  };
+
+  // Selection ring for booking mode
+  const renderSelectionRing = () => {
+    if (!isBooking || !isSelected) return null;
+    const radius = Math.max(w, h) / 2 + 8;
+    return (
+      <Ring
+        x={w / 2} y={h / 2}
+        innerRadius={radius - 3}
+        outerRadius={radius}
+        fill={SELECTED_GLOW}
+        opacity={0.6}
+        listening={false}
+      />
+    );
   };
 
   return (
@@ -140,20 +150,23 @@ export default function TableShape({
       onTap={handleClick}
       onDblClick={onDblClick}
       onDblTap={onDblClick}
-      style={{ cursor }}
     >
+      {/* Selection ring (behind the table) */}
+      {renderSelectionRing()}
+
+      {/* Table shape */}
       {renderShape()}
 
-      {/* Table number label */}
+      {/* Table number */}
       <Text
         x={0}
         y={h / 2 - 14}
         width={w}
         text={tableLabel}
-        fontSize={14}
+        fontSize={isBooking ? 13 : 14}
         fontStyle="bold"
         fontFamily="system-ui, sans-serif"
-        fill={mode === "booking" ? "#fff" : "#1e293b"}
+        fill={isBooking ? "#fff" : "#1e293b"}
         align="center"
         listening={false}
       />
@@ -164,12 +177,28 @@ export default function TableShape({
         y={h / 2 + 2}
         width={w}
         text={seatLabel}
-        fontSize={11}
+        fontSize={10}
         fontFamily="system-ui, sans-serif"
-        fill={mode === "booking" ? "rgba(255,255,255,0.85)" : "#64748b"}
+        fill={isBooking ? "rgba(255,255,255,0.8)" : "#64748b"}
         align="center"
         listening={false}
       />
+
+      {/* "SELECTED" label on top */}
+      {isBooking && isSelected && (
+        <Text
+          x={0}
+          y={-18}
+          width={w}
+          text="SELECTED"
+          fontSize={9}
+          fontStyle="bold"
+          fontFamily="system-ui, sans-serif"
+          fill={SELECTED_GLOW}
+          align="center"
+          listening={false}
+        />
+      )}
     </Group>
   );
 }

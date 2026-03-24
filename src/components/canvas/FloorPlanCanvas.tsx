@@ -20,6 +20,7 @@ const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.1;
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 800;
+const PADDING = 30;
 
 interface FloorPlanCanvasProps {
   mode: "editor" | "booking";
@@ -32,6 +33,22 @@ interface FloorPlanCanvasProps {
     tables: PubTable[],
     elements: VisualElement[]
   ) => void;
+}
+
+function getContentBounds(tables: PubTable[], visualElements: VisualElement[]) {
+  if (tables.length === 0 && visualElements.length === 0) {
+    return { minX: 0, minY: 0, maxX: 400, maxY: 300 };
+  }
+  const allItems = [
+    ...tables.map((t) => ({ x: t.positionX, y: t.positionY, w: t.width ?? 80, h: t.height ?? 80 })),
+    ...visualElements.map((e) => ({ x: e.positionX, y: e.positionY, w: e.width ?? 60, h: e.height ?? 60 })),
+  ];
+  return {
+    minX: Math.min(...allItems.map((i) => i.x)) - PADDING,
+    minY: Math.min(...allItems.map((i) => i.y)) - PADDING,
+    maxX: Math.max(...allItems.map((i) => i.x + i.w)) + PADDING,
+    maxY: Math.max(...allItems.map((i) => i.y + i.h)) + PADDING,
+  };
 }
 
 export default function FloorPlanCanvas({
@@ -49,36 +66,38 @@ export default function FloorPlanCanvas({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
-  // Responsive sizing + auto-center in booking mode
+  // Responsive sizing + auto-fit in booking mode
   useEffect(() => {
     const updateSize = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const width = rect.width;
-      const isMobile = width < 640;
-      const maxH = isMobile ? 600 : 700;
-      const minH = 400;
-      const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
-      setStageSize({ width, height });
+      const containerWidth = rect.width;
 
-      // In booking mode, auto-fit and center the content
       if (mode === "booking" && tables.length > 0) {
-        const allItems = [
-          ...tables.map((t) => ({ x: t.positionX, y: t.positionY, w: t.width, h: t.height })),
-          ...visualElements.map((e) => ({ x: e.positionX, y: e.positionY, w: e.width ?? 60, h: e.height ?? 60 })),
-        ];
-        const minX = Math.min(...allItems.map((i) => i.x)) - 40;
-        const minY = Math.min(...allItems.map((i) => i.y)) - 40;
-        const maxX = Math.max(...allItems.map((i) => i.x + (i.w ?? 60))) + 40;
-        const maxY = Math.max(...allItems.map((i) => i.y + (i.h ?? 60))) + 40;
-        const contentW = maxX - minX;
-        const contentH = maxY - minY;
-        const fitScale = Math.min(width / contentW, height / contentH, 1.2);
-        setScale(fitScale);
+        // Tight-fit: calculate canvas size from content bounds
+        const bounds = getContentBounds(tables, visualElements);
+        const contentW = bounds.maxX - bounds.minX;
+        const contentH = bounds.maxY - bounds.minY;
+        const aspectRatio = contentH / contentW;
+
+        // Fit width to container, calculate height from aspect ratio
+        const fitScale = containerWidth / contentW;
+        const canvasHeight = Math.min(contentW * aspectRatio * fitScale, window.innerHeight * 0.6);
+        const finalScale = Math.min(containerWidth / contentW, canvasHeight / contentH);
+
+        setStageSize({ width: containerWidth, height: canvasHeight });
+        setScale(finalScale);
         setPosition({
-          x: (width - contentW * fitScale) / 2 - minX * fitScale,
-          y: (height - contentH * fitScale) / 2 - minY * fitScale,
+          x: (containerWidth - contentW * finalScale) / 2 - bounds.minX * finalScale,
+          y: (canvasHeight - contentH * finalScale) / 2 - bounds.minY * finalScale,
         });
+      } else {
+        // Editor mode: full canvas
+        const isMobile = containerWidth < 640;
+        const maxH = isMobile ? 600 : 700;
+        const minH = 400;
+        const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
+        setStageSize({ width: containerWidth, height });
       }
     };
 
@@ -87,28 +106,22 @@ export default function FloorPlanCanvas({
     return () => window.removeEventListener("resize", updateSize);
   }, [mode, tables.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Draw grid lines
+  // Draw grid lines (editor only)
   const gridLines = useMemo(() => {
+    if (mode === "booking") return [];
     const lines: { points: number[]; key: string }[] = [];
     const gridW = CANVAS_WIDTH * 2;
     const gridH = CANVAS_HEIGHT * 2;
 
     for (let x = 0; x <= gridW; x += GRID_SIZE) {
-      lines.push({
-        points: [x, 0, x, gridH],
-        key: `v-${x}`,
-      });
+      lines.push({ points: [x, 0, x, gridH], key: `v-${x}` });
     }
     for (let y = 0; y <= gridH; y += GRID_SIZE) {
-      lines.push({
-        points: [0, y, gridW, y],
-        key: `h-${y}`,
-      });
+      lines.push({ points: [0, y, gridW, y], key: `h-${y}` });
     }
     return lines;
-  }, []);
+  }, [mode]);
 
-  // Zoom with scroll wheel
   const handleWheel = useCallback(
     (e: KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
@@ -120,10 +133,7 @@ export default function FloorPlanCanvas({
       if (!pointer) return;
 
       const direction = e.evt.deltaY < 0 ? 1 : -1;
-      const newScale = Math.max(
-        MIN_ZOOM,
-        Math.min(MAX_ZOOM, oldScale + direction * ZOOM_STEP)
-      );
+      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, oldScale + direction * ZOOM_STEP));
 
       const mousePointTo = {
         x: (pointer.x - position.x) / oldScale,
@@ -139,20 +149,15 @@ export default function FloorPlanCanvas({
     [scale, position]
   );
 
-  // Pan on drag (empty space)
   const handleDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
       if (e.target === stageRef.current) {
-        setPosition({
-          x: e.target.x(),
-          y: e.target.y(),
-        });
+        setPosition({ x: e.target.x(), y: e.target.y() });
       }
     },
     []
   );
 
-  // Table drag
   const handleTableDragEnd = useCallback(
     (tableId: string, x: number, y: number) => {
       if (!onLayoutChange) return;
@@ -164,50 +169,36 @@ export default function FloorPlanCanvas({
     [tables, visualElements, onLayoutChange]
   );
 
-  // Element drag
   const handleElementDragEnd = useCallback(
     (elementId: string, x: number, y: number) => {
       if (!onLayoutChange) return;
       const updatedElements = visualElements.map((el) =>
-        el.id === elementId
-          ? { ...el, positionX: x, positionY: y }
-          : el
+        el.id === elementId ? { ...el, positionX: x, positionY: y } : el
       );
       onLayoutChange(tables, updatedElements);
     },
     [tables, visualElements, onLayoutChange]
   );
 
-  // Zoom controls (exposed via ref or called from toolbar)
-  const zoomIn = useCallback(() => {
-    setScale((s) => Math.min(MAX_ZOOM, s + ZOOM_STEP));
-  }, []);
+  const zoomIn = useCallback(() => setScale((s) => Math.min(MAX_ZOOM, s + ZOOM_STEP)), []);
+  const zoomOut = useCallback(() => setScale((s) => Math.max(MIN_ZOOM, s - ZOOM_STEP)), []);
+  const resetZoom = useCallback(() => { setScale(1); setPosition({ x: 0, y: 0 }); }, []);
 
-  const zoomOut = useCallback(() => {
-    setScale((s) => Math.max(MIN_ZOOM, s - ZOOM_STEP));
-  }, []);
-
-  const resetZoom = useCallback(() => {
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-  }, []);
-
-  // Expose zoom controls via a data attribute for the toolbar
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    (el as unknown as Record<string, unknown>).__canvasControls = {
-      zoomIn,
-      zoomOut,
-      resetZoom,
-    };
+    (el as unknown as Record<string, unknown>).__canvasControls = { zoomIn, zoomOut, resetZoom };
   }, [zoomIn, zoomOut, resetZoom]);
+
+  const isBooking = mode === "booking";
+  const bgFill = isBooking ? "#1e293b" : "#fafafa";
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-lg border bg-white"
-      style={{ minHeight: 400 }}
+      className={`relative w-full overflow-hidden rounded-xl ${
+        isBooking ? "bg-slate-800 border border-slate-700/50" : "border bg-white"
+      }`}
     >
       <Stage
         ref={stageRef as React.RefObject<Konva.Stage>}
@@ -217,18 +208,18 @@ export default function FloorPlanCanvas({
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={mode === "editor"}
-        onWheel={mode === "editor" ? handleWheel : undefined}
-        onDragEnd={mode === "editor" ? handleDragEnd : undefined}
+        draggable={!isBooking}
+        onWheel={!isBooking ? handleWheel : undefined}
+        onDragEnd={!isBooking ? handleDragEnd : undefined}
       >
-        {/* Grid layer */}
+        {/* Background layer */}
         <Layer listening={false}>
           <Rect
-            x={0}
-            y={0}
-            width={CANVAS_WIDTH * 2}
-            height={CANVAS_HEIGHT * 2}
-            fill="#fafafa"
+            x={-5000}
+            y={-5000}
+            width={10000}
+            height={10000}
+            fill={bgFill}
           />
           {gridLines.map((line) => (
             <Line
@@ -249,7 +240,7 @@ export default function FloorPlanCanvas({
               element={element}
               mode={mode}
               onDragEnd={
-                mode === "editor"
+                !isBooking
                   ? (x, y) => handleElementDragEnd(element.id, x, y)
                   : undefined
               }
@@ -267,12 +258,10 @@ export default function FloorPlanCanvas({
               status={tableStatuses[table.id]}
               isSelected={selectedTableId === table.id}
               onSelect={
-                onTableSelect
-                  ? () => onTableSelect(table.id)
-                  : undefined
+                onTableSelect ? () => onTableSelect(table.id) : undefined
               }
               onDragEnd={
-                mode === "editor"
+                !isBooking
                   ? (x, y) => handleTableDragEnd(table.id, x, y)
                   : undefined
               }
@@ -282,7 +271,7 @@ export default function FloorPlanCanvas({
       </Stage>
 
       {/* Zoom indicator - editor only */}
-      {mode === "editor" && (
+      {!isBooking && (
         <div className="absolute bottom-3 right-3 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
           {Math.round(scale * 100)}%
         </div>
