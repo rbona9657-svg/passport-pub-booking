@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,10 @@ export default function BookPage() {
       .catch(console.error);
   }, []);
 
+  // Keep a ref to selectedTableId so the availability effect can read it without re-triggering
+  const selectedTableRef = useRef(selectedTableId);
+  selectedTableRef.current = selectedTableId;
+
   // Load availability when date/time changes
   useEffect(() => {
     if (!floorPlanId) return;
@@ -95,12 +99,12 @@ export default function BookPage() {
       .then((res) => res.json())
       .then((data) => {
         setTableStatuses(data);
-        if (selectedTableId && data[selectedTableId] === "booked") {
+        if (selectedTableRef.current && data[selectedTableRef.current] === "booked") {
           setSelectedTableId(null);
         }
       })
       .catch(console.error);
-  }, [floorPlanId, bookingDate, arrivalTime, departureTime, selectedTableId]);
+  }, [floorPlanId, bookingDate, arrivalTime, departureTime]);
 
   const selectedTable = tables.find((t) => t.id === selectedTableId);
   const today = new Date().toISOString().split("T")[0];
@@ -195,26 +199,12 @@ export default function BookPage() {
                   <CalendarDays className="h-4 w-4" />
                   Date
                 </Label>
-                <div
-                  className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm cursor-pointer hover:border-ring transition-colors md:text-sm"
-                  onClick={() => {
-                    const input = document.getElementById("booking-date-input") as HTMLInputElement;
-                    input?.showPicker?.();
-                    input?.focus();
-                  }}
-                >
-                  <span className="flex-1">{bookingDate}</span>
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  <input
-                    id="booking-date-input"
-                    type="date"
-                    value={bookingDate}
-                    min={today}
-                    onChange={(e) => setBookingDate(e.target.value)}
-                    className="sr-only"
-                    tabIndex={-1}
-                  />
-                </div>
+                <Input
+                  type="date"
+                  value={bookingDate}
+                  min={today}
+                  onChange={(e) => setBookingDate(e.target.value)}
+                />
               </div>
               <div className="flex-1 space-y-2">
                 <Label className="flex items-center gap-2">
