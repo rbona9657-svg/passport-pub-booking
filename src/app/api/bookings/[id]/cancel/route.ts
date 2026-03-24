@@ -18,9 +18,11 @@ export async function POST(
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    // Verify the cancellation request by email
-    const bookingEmail = booking.user?.email || booking.guestEmail;
-    if (!email || email.toLowerCase() !== bookingEmail?.toLowerCase()) {
+    // Verify the cancellation request by email (accept either the account email or guest email)
+    const emailLower = email?.toLowerCase();
+    const matchesUser = emailLower && booking.user?.email?.toLowerCase() === emailLower;
+    const matchesGuest = emailLower && booking.guestEmail?.toLowerCase() === emailLower;
+    if (!emailLower || (!matchesUser && !matchesGuest)) {
       return NextResponse.json(
         { error: "Email does not match the booking" },
         { status: 403 }
@@ -44,8 +46,8 @@ export async function POST(
     const updated = await updateBookingStatus(id, "cancelled");
 
     // Send cancellation emails (non-blocking)
-    if (bookingEmail) {
-      sendBookingCancelled(bookingEmail, {
+    if (emailLower) {
+      sendBookingCancelled(emailLower, {
         reservationName: booking.reservationName,
         bookingDate: booking.bookingDate,
         arrivalTime: booking.arrivalTime,

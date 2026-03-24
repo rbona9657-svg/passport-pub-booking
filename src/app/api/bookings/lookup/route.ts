@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { bookings, tables } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { bookings, tables, users } from "@/lib/db/schema";
+import { eq, or, desc } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,6 +9,8 @@ export async function GET(req: NextRequest) {
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
+
+    const emailLower = email.toLowerCase();
 
     const result = await db
       .select({
@@ -20,7 +22,8 @@ export async function GET(req: NextRequest) {
       })
       .from(bookings)
       .innerJoin(tables, eq(tables.id, bookings.tableId))
-      .where(eq(bookings.guestEmail, email.toLowerCase()))
+      .leftJoin(users, eq(users.id, bookings.userId))
+      .where(or(eq(bookings.guestEmail, emailLower), eq(users.email, emailLower)))
       .orderBy(desc(bookings.createdAt));
 
     const mapped = result.map((r) => ({
