@@ -43,6 +43,14 @@ export default function HomePage() {
                     Manage Bookings
                   </Link>
                 </div>
+                <div className="mt-4 flex sm:justify-center lg:justify-start">
+                  <Link
+                    href="/auth/signin"
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  >
+                    Admin Access
+                  </Link>
+                </div>
               </div>
               <div className="flex-1 max-w-md lg:max-w-lg">
                 <Image
