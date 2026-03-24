@@ -195,12 +195,26 @@ export default function BookPage() {
                   <CalendarDays className="h-4 w-4" />
                   Date
                 </Label>
-                <Input
-                  type="date"
-                  value={bookingDate}
-                  min={today}
-                  onChange={(e) => setBookingDate(e.target.value)}
-                />
+                <div
+                  className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm cursor-pointer hover:border-ring transition-colors md:text-sm"
+                  onClick={() => {
+                    const input = document.getElementById("booking-date-input") as HTMLInputElement;
+                    input?.showPicker?.();
+                    input?.focus();
+                  }}
+                >
+                  <span className="flex-1">{bookingDate}</span>
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    id="booking-date-input"
+                    type="date"
+                    value={bookingDate}
+                    min={today}
+                    onChange={(e) => setBookingDate(e.target.value)}
+                    className="sr-only"
+                    tabIndex={-1}
+                  />
+                </div>
               </div>
               <div className="flex-1 space-y-2">
                 <Label className="flex items-center gap-2">
