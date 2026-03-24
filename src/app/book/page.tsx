@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { PUB_HOURS } from "@/lib/constants";
+import { toMinutesSinceOpen } from "@/lib/validations";
 import {
   CalendarDays,
   Clock,
@@ -50,6 +51,26 @@ export default function BookPage() {
   const [submitted, setSubmitted] = useState(false);
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const handleArrivalChange = (val: string) => {
+    setArrivalTime(val);
+    if (toMinutesSinceOpen(departureTime) <= toMinutesSinceOpen(val)) {
+      const idx = PUB_HOURS.indexOf(val as typeof PUB_HOURS[number]);
+      if (idx >= 0 && idx < PUB_HOURS.length - 1) {
+        setDepartureTime(PUB_HOURS[idx + 1]);
+      }
+    }
+  };
+
+  const handleDepartureChange = (val: string) => {
+    setDepartureTime(val);
+    if (toMinutesSinceOpen(val) <= toMinutesSinceOpen(arrivalTime)) {
+      const idx = PUB_HOURS.indexOf(val as typeof PUB_HOURS[number]);
+      if (idx > 0) {
+        setArrivalTime(PUB_HOURS[idx - 1]);
+      }
+    }
+  };
 
   // Load floor plan
   useEffect(() => {
@@ -179,7 +200,7 @@ export default function BookPage() {
                   <Clock className="h-4 w-4" />
                   Arrival
                 </Label>
-                <Select value={arrivalTime} onValueChange={setArrivalTime}>
+                <Select value={arrivalTime} onValueChange={handleArrivalChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PUB_HOURS.map((h) => (
@@ -193,7 +214,7 @@ export default function BookPage() {
                   <Clock className="h-4 w-4" />
                   Departure
                 </Label>
-                <Select value={departureTime} onValueChange={setDepartureTime}>
+                <Select value={departureTime} onValueChange={handleDepartureChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PUB_HOURS.map((h) => (

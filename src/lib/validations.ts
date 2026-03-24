@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+/** Convert HH:MM to minutes since pub opening (16:00). Handles past-midnight wrap. */
+export function toMinutesSinceOpen(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  // Hours 0-5 are "next day" (after midnight), so add 24
+  const adjusted = h < 16 ? h + 24 : h;
+  return adjusted * 60 + m;
+}
+
 export const createBookingSchema = z.object({
   tableId: z.string().uuid(),
   reservationName: z.string().min(2, "Name must be at least 2 characters").max(100),
@@ -9,6 +17,9 @@ export const createBookingSchema = z.object({
   arrivalTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),
   departureTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),
   comment: z.string().max(500).optional().nullable(),
+}).refine((data) => toMinutesSinceOpen(data.departureTime) > toMinutesSinceOpen(data.arrivalTime), {
+  message: "Departure time must be after arrival time",
+  path: ["departureTime"],
 });
 
 export const updateBookingSchema = z.object({
@@ -30,6 +41,9 @@ export const quickBookSchema = z.object({
   departureTime: z.string().regex(/^\d{2}:\d{2}$/),
   comment: z.string().max(500).optional().nullable(),
   source: z.enum(["online", "phone", "voice"]).optional(),
+}).refine((data) => toMinutesSinceOpen(data.departureTime) > toMinutesSinceOpen(data.arrivalTime), {
+  message: "Departure time must be after arrival time",
+  path: ["departureTime"],
 });
 
 export const saveFloorPlanSchema = z.object({

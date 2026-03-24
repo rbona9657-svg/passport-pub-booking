@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { PUB_HOURS } from "@/lib/constants";
+import { toMinutesSinceOpen } from "@/lib/validations";
 import {
   Check,
   Loader2,
@@ -33,6 +34,26 @@ export default function MobileQuickBookPage() {
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const handleArrivalChange = (val: string) => {
+    setArrivalTime(val);
+    if (toMinutesSinceOpen(departureTime) <= toMinutesSinceOpen(val)) {
+      const idx = PUB_HOURS.indexOf(val as typeof PUB_HOURS[number]);
+      if (idx >= 0 && idx < PUB_HOURS.length - 1) {
+        setDepartureTime(PUB_HOURS[idx + 1]);
+      }
+    }
+  };
+
+  const handleDepartureChange = (val: string) => {
+    setDepartureTime(val);
+    if (toMinutesSinceOpen(val) <= toMinutesSinceOpen(arrivalTime)) {
+      const idx = PUB_HOURS.indexOf(val as typeof PUB_HOURS[number]);
+      if (idx > 0) {
+        setArrivalTime(PUB_HOURS[idx - 1]);
+      }
+    }
+  };
 
   useEffect(() => {
     fetch("/api/floor-plan")
@@ -147,7 +168,7 @@ export default function MobileQuickBookPage() {
           <Label className="text-[11px] text-muted-foreground">From</Label>
           <select
             value={arrivalTime}
-            onChange={(e) => setArrivalTime(e.target.value)}
+            onChange={(e) => handleArrivalChange(e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {PUB_HOURS.map((h) => (
@@ -159,7 +180,7 @@ export default function MobileQuickBookPage() {
           <Label className="text-[11px] text-muted-foreground">To</Label>
           <select
             value={departureTime}
-            onChange={(e) => setDepartureTime(e.target.value)}
+            onChange={(e) => handleDepartureChange(e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {PUB_HOURS.map((h) => (
