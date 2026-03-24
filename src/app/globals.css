@@ -123,7 +123,6 @@
 input[type="date"] {
   color-scheme: dark;
   cursor: pointer;
-  -webkit-appearance: none;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
@@ -133,7 +132,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   padding: 4px;
   width: 20px;
   height: 20px;
-  -webkit-appearance: none;
 }
 
 /* Firefox date picker */
