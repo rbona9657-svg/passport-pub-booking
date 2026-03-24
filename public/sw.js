@@ -55,7 +55,20 @@ self.addEventListener("push", (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || "Passport Pub", options)
+    Promise.all([
+      self.registration.showNotification(data.title || "Passport Pub", options),
+      // Update app icon badge with pending bookings count
+      fetch("/api/bookings/pending-count")
+        .then((res) => res.json())
+        .then(({ count }) => {
+          if (navigator.setAppBadge && count > 0) {
+            return navigator.setAppBadge(count);
+          } else if (navigator.clearAppBadge) {
+            return navigator.clearAppBadge();
+          }
+        })
+        .catch(() => {}),
+    ])
   );
 });
 

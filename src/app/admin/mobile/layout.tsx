@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -28,6 +29,30 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
   const pathname = usePathname();
   const { data: session } = useSession();
   const { permission, isSubscribed, subscribe } = usePushNotifications();
+
+  const updateAppBadge = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bookings/pending-count");
+      if (!res.ok) return;
+      const { count } = await res.json();
+      if ("setAppBadge" in navigator) {
+        if (count > 0) {
+          await (navigator as Navigator & { setAppBadge: (n: number) => Promise<void> }).setAppBadge(count);
+        } else {
+          await (navigator as Navigator & { clearAppBadge: () => Promise<void> }).clearAppBadge();
+        }
+      }
+    } catch {
+      // Badge API not supported or fetch failed
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session || session.user?.role !== "admin") return;
+    updateAppBadge();
+    const interval = setInterval(updateAppBadge, 30_000);
+    return () => clearInterval(interval);
+  }, [session, updateAppBadge]);
 
   if (!session || session.user?.role !== "admin") {
     return null;
