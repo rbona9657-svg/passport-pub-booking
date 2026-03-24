@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "Passport Pub - Table Booking",
   description: "Book your table at Passport Pub, Budapest",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/icon-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

@@ -341,9 +341,8 @@ export default function BookPage() {
         {submitted && (
           <Card className="border-green-500/30 bg-green-500/5">
             <CardContent className="py-8 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10">
-                <CalendarDays className="h-7 w-7 text-green-500" />
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/booking-success.svg" alt="" className="mx-auto mb-4 h-24 w-24" />
               <h3 className="text-lg font-semibold">Booking Submitted!</h3>
               <p className="text-muted-foreground mt-2">
                 Your booking request has been received. We'll review it and send a confirmation to <strong className="text-foreground">{guestEmail}</strong> once approved.

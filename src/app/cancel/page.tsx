@@ -125,8 +125,13 @@ export default function CancelPage() {
 
         {searched && bookings.length === 0 && (
           <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">No bookings found for this email address.</p>
+            <CardContent className="py-10 text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/no-bookings.svg" alt="" className="mx-auto mb-4 h-28 w-28 opacity-70" />
+              <h3 className="text-base font-semibold">No Bookings Found</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                We couldn't find any bookings for this email address.
+              </p>
             </CardContent>
           </Card>
         )}
