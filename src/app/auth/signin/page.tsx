@@ -13,15 +13,21 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
     try {
-      await signIn("email", { email, redirect: false });
-      setSent(true);
+      const result = await signIn("email", { email, redirect: false });
+      if (result?.error) {
+        setError("Failed to send sign-in link. Please check server configuration.");
+      } else {
+        setSent(true);
+      }
     } catch {
-      // handle error
+      setError("Something went wrong. Please check that the server is configured correctly.");
     } finally {
       setLoading(false);
     }
@@ -95,6 +101,9 @@ export default function SignInPage() {
                     </span>
                   )}
                 </Button>
+                {error && (
+                  <p className="text-sm text-red-500 text-center">{error}</p>
+                )}
                 <p className="text-xs text-center text-muted-foreground">
                   No password needed. We'll send you a secure sign-in link.
                 </p>
