@@ -8,7 +8,15 @@ export function toMinutesSinceOpen(time: string): number {
   return adjusted * 60 + m;
 }
 
-export const createBookingSchema = z.object({
+const timeRefinement = (data: { arrivalTime: string; departureTime: string }) =>
+  toMinutesSinceOpen(data.departureTime) > toMinutesSinceOpen(data.arrivalTime);
+
+const timeRefinementMeta = {
+  message: "Departure time must be after arrival time",
+  path: ["departureTime"] as string[],
+};
+
+const createBookingBase = z.object({
   tableId: z.string().uuid(),
   reservationName: z.string().min(2, "Name must be at least 2 characters").max(100),
   guestEmail: z.string().email("Please enter a valid email address"),
@@ -17,10 +25,13 @@ export const createBookingSchema = z.object({
   arrivalTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),
   departureTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),
   comment: z.string().max(500).optional().nullable(),
-}).refine((data) => toMinutesSinceOpen(data.departureTime) > toMinutesSinceOpen(data.arrivalTime), {
-  message: "Departure time must be after arrival time",
-  path: ["departureTime"],
 });
+
+export const createBookingSchema = createBookingBase.refine(timeRefinement, timeRefinementMeta);
+
+export const createBookingAdminSchema = createBookingBase
+  .extend({ guestEmail: z.string().email().optional() })
+  .refine(timeRefinement, timeRefinementMeta);
 
 export const updateBookingSchema = z.object({
   guestCount: z.number().int().min(1).max(20).optional(),

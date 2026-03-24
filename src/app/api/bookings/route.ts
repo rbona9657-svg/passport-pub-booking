@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createBooking, getAdminBookings, getUserBookings } from "@/lib/db/queries/bookings";
-import { createBookingSchema } from "@/lib/validations";
+import { createBookingSchema, createBookingAdminSchema } from "@/lib/validations";
 import { db } from "@/lib/db";
 import { tables } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -43,9 +43,7 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     const isAdmin = session?.user?.role === "admin";
 
-    const schema = isAdmin
-      ? createBookingSchema.extend({ guestEmail: createBookingSchema.shape.guestEmail.optional() })
-      : createBookingSchema;
+    const schema = isAdmin ? createBookingAdminSchema : createBookingSchema;
 
     const parsed = schema.safeParse(body);
 
@@ -120,6 +118,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(booking, { status: 201 });
   } catch (error) {
     console.error("Error creating booking:", error);
-    return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to create booking";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

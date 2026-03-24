@@ -147,9 +147,16 @@ export default function BookPage() {
         if (statusRes.ok) setTableStatuses(await statusRes.json());
       } else {
         const data = await res.json();
+        let errorMsg = "Please try again";
+        if (typeof data.error === "string") {
+          errorMsg = data.error;
+        } else if (data.error?.fieldErrors) {
+          const fields = data.error.fieldErrors;
+          errorMsg = Object.values(fields).flat().join(". ");
+        }
         toast({
           title: "Booking failed",
-          description: typeof data.error === "string" ? data.error : "Please try again",
+          description: errorMsg,
           variant: "destructive",
         });
       }
