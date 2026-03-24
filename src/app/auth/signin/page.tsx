@@ -26,6 +26,13 @@ export default function SignInPage() {
         body: JSON.stringify({ email, password }),
       });
 
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        setError("Server error — the API returned an unexpected response. Check that DATABASE_URL and other environment variables are configured.");
+        setLoading(false);
+        return;
+      }
+
       const data = await res.json();
 
       if (!res.ok) {
@@ -34,15 +41,10 @@ export default function SignInPage() {
         return;
       }
 
-      // Check debug info after login
-      const debugRes = await fetch("/api/admin/debug");
-      const debugData = await debugRes.json();
-      console.log("Login success, debug:", debugData);
-
       // Full page reload to pick up the new session cookie
       window.location.href = "/admin/dashboard";
     } catch (err) {
-      setError("Something went wrong: " + String(err));
+      setError("Something went wrong — please check the server logs and ensure environment variables are set.");
       setLoading(false);
     }
   };

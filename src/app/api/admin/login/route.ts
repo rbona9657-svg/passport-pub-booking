@@ -6,6 +6,10 @@ import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ error: "Server not configured: DATABASE_URL is missing" }, { status: 500 });
+    }
+
     const { email, password } = await req.json();
 
     if (!email || !password) {
