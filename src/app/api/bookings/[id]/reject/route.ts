@@ -32,7 +32,7 @@ export async function POST(
     const updated = await updateBookingStatus(id, "rejected", parsed.data.reason);
 
     // Send rejection email and track result
-    const email = booking.user?.email || booking.guestEmail;
+    const email = booking.guestEmail || booking.user?.email;
     let emailSent = false;
     let emailError: string | null = null;
 

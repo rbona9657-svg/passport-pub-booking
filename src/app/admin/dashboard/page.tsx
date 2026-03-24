@@ -148,7 +148,7 @@ export default function AdminDashboard() {
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="text-base">{booking.reservationName}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-1">{booking.user?.email || booking.guestEmail || "No email"}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{booking.guestEmail || booking.user?.email || "No email"}</p>
                     </div>
                     <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
                       Pending

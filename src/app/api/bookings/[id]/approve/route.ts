@@ -17,7 +17,9 @@ async function handleApproval(id: string) {
   await updateBookingStatus(id, "approved");
 
   // Send approval email and track result
-  const email = booking.user?.email || booking.guestEmail;
+  // Prefer guestEmail (explicitly provided for notifications) over user account email
+  // (which may be the admin's email if booking was created by admin)
+  const email = booking.guestEmail || booking.user?.email;
   let emailSent = false;
   let emailError: string | null = null;
 
