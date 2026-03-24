@@ -130,22 +130,22 @@ export default function QuickBookPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-hidden">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Quick Book</h1>
-        <p className="text-muted-foreground">Quickly register phone or walk-in bookings</p>
+        <p className="text-muted-foreground text-sm">Quickly register phone or walk-in bookings</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Form */}
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden">
+          <CardHeader className="px-4 py-4 sm:px-6">
             <CardTitle className="text-base flex items-center gap-2">
-              <CalendarPlus className="h-4 w-4" />
+              <CalendarPlus className="h-4 w-4 shrink-0" />
               Booking Details
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>Reservation Name</Label>
@@ -157,8 +157,8 @@ export default function QuickBookPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2 min-w-0">
                   <Label>Guests</Label>
                   <Input
                     type="number"
@@ -168,19 +168,20 @@ export default function QuickBookPage() {
                     onChange={(e) => setGuestCount(e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label>Date</Label>
                   <Input
                     type="date"
                     value={bookingDate}
                     min={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setBookingDate(e.target.value)}
+                    className="min-w-0"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2 min-w-0">
                   <Label>Arrival</Label>
                   <Select value={arrivalTime} onValueChange={handleArrivalChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -191,7 +192,7 @@ export default function QuickBookPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label>Departure</Label>
                   <Select value={departureTime} onValueChange={handleDepartureChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -220,7 +221,7 @@ export default function QuickBookPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full truncate" disabled={loading || !selectedTableId}>
+              <Button type="submit" className="w-full" disabled={loading || !selectedTableId}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Create & Approve
               </Button>
@@ -229,16 +230,18 @@ export default function QuickBookPage() {
         </Card>
 
         {/* Canvas */}
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-muted-foreground mb-3">Click a table to select it</p>
-          <FloorPlanCanvas
-            mode="booking"
-            tables={tables}
-            visualElements={elements}
-            tableStatuses={tableStatuses}
-            selectedTableId={selectedTableId}
-            onTableSelect={setSelectedTableId}
-          />
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <FloorPlanCanvas
+              mode="booking"
+              tables={tables}
+              visualElements={elements}
+              tableStatuses={tableStatuses}
+              selectedTableId={selectedTableId}
+              onTableSelect={setSelectedTableId}
+            />
+          </div>
         </div>
       </div>
     </div>
