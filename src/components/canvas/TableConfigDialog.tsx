@@ -30,6 +30,8 @@ interface TableConfigDialogProps {
     tableNumber: string;
     seats: number;
     shape: string;
+    width?: number;
+    height?: number;
   }) => void;
   onDelete: () => void;
 }
@@ -44,12 +46,16 @@ export default function TableConfigDialog({
   const [tableNumber, setTableNumber] = useState("");
   const [seats, setSeats] = useState(4);
   const [shape, setShape] = useState("rect");
+  const [width, setWidth] = useState(80);
+  const [height, setHeight] = useState(80);
 
   useEffect(() => {
     if (table) {
       setTableNumber(table.tableNumber);
       setSeats(table.seats);
       setShape(table.shape ?? "rect");
+      setWidth(table.width ?? 80);
+      setHeight(table.height ?? 80);
     }
   }, [table]);
 
@@ -59,6 +65,8 @@ export default function TableConfigDialog({
       tableNumber: tableNumber.trim(),
       seats: Math.max(1, seats),
       shape,
+      width: Math.max(20, width),
+      height: Math.max(20, height),
     });
   };
 
@@ -68,7 +76,7 @@ export default function TableConfigDialog({
         <DialogHeader>
           <DialogTitle>Edit Table</DialogTitle>
           <DialogDescription>
-            Update table number, seat count, and shape.
+            Update table number, seat count, shape, and size.
           </DialogDescription>
         </DialogHeader>
 
@@ -107,6 +115,33 @@ export default function TableConfigDialog({
                 <SelectItem value="ellipse">Ellipse</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor="width">Width (px)</Label>
+              <Input
+                id="width"
+                type="number"
+                min={20}
+                max={500}
+                step={20}
+                value={width}
+                onChange={(e) => setWidth(parseInt(e.target.value, 10) || 80)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="height">Height (px)</Label>
+              <Input
+                id="height"
+                type="number"
+                min={20}
+                max={500}
+                step={20}
+                value={height}
+                onChange={(e) => setHeight(parseInt(e.target.value, 10) || 80)}
+              />
+            </div>
           </div>
         </div>
 

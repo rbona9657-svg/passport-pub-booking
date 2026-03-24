@@ -136,11 +136,18 @@ export default function MobileFloorPlanPage() {
     }
   };
 
-  const handleTableConfigSave = (updates: { tableNumber: string; seats: number; shape: string }) => {
+  const handleTableConfigSave = (updates: { tableNumber: string; seats: number; shape: string; width?: number; height?: number }) => {
     setTables((prev) =>
       prev.map((t) =>
         t.id === configTable?.id
-          ? { ...t, tableNumber: updates.tableNumber, seats: updates.seats, shape: updates.shape as PubTable["shape"] }
+          ? {
+              ...t,
+              tableNumber: updates.tableNumber,
+              seats: updates.seats,
+              shape: updates.shape as PubTable["shape"],
+              ...(updates.width != null && { width: updates.width }),
+              ...(updates.height != null && { height: updates.height }),
+            }
           : t
       )
     );
