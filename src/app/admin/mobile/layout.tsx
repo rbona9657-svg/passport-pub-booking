@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -29,12 +29,15 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
   const pathname = usePathname();
   const { data: session } = useSession();
   const { permission, isSubscribed, subscribe } = usePushNotifications();
+  const [pendingCount, setPendingCount] = useState(0);
 
-  const updateAppBadge = useCallback(async () => {
+  const fetchPendingCount = useCallback(async () => {
     try {
       const res = await fetch("/api/bookings/pending-count");
       if (!res.ok) return;
       const { count } = await res.json();
+      setPendingCount(count);
+      // Also try native badge API for Android
       if ("setAppBadge" in navigator) {
         if (count > 0) {
           await (navigator as Navigator & { setAppBadge: (n: number) => Promise<void> }).setAppBadge(count);
@@ -43,16 +46,16 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
         }
       }
     } catch {
-      // Badge API not supported or fetch failed
+      // Ignore errors
     }
   }, []);
 
   useEffect(() => {
     if (!session || session.user?.role !== "admin") return;
-    updateAppBadge();
-    const interval = setInterval(updateAppBadge, 30_000);
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30_000);
     return () => clearInterval(interval);
-  }, [session, updateAppBadge]);
+  }, [session, fetchPendingCount]);
 
   if (!session || session.user?.role !== "admin") {
     return null;
@@ -116,7 +119,14 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
                     : "text-muted-foreground active:text-foreground"
                 )}
               >
-                <Icon className={cn("h-5 w-5", isActive && "stroke-[2.5]")} />
+                <span className="relative">
+                  <Icon className={cn("h-5 w-5", isActive && "stroke-[2.5]")} />
+                  {tab.href === "/admin/mobile/bookings" && pendingCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
+                      {pendingCount > 99 ? "99+" : pendingCount}
+                    </span>
+                  )}
+                </span>
                 <span className="text-[10px] font-medium leading-none">{tab.label}</span>
               </Link>
             );
