@@ -34,10 +34,15 @@ export default function SignInPage() {
         return;
       }
 
+      // Check debug info after login
+      const debugRes = await fetch("/api/admin/debug");
+      const debugData = await debugRes.json();
+      console.log("Login success, debug:", debugData);
+
       // Full page reload to pick up the new session cookie
       window.location.href = "/admin/dashboard";
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      setError("Something went wrong: " + String(err));
       setLoading(false);
     }
   };

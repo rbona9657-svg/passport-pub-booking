@@ -4,7 +4,19 @@ import { getToken } from "next-auth/jwt";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+  // Determine cookie name based on protocol (must match what login route sets)
+  const isSecure = req.nextUrl.protocol === "https:";
+  const cookieName = isSecure
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
+
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+    salt: cookieName,
+    cookieName,
+  });
   const isSignedIn = !!token;
   const isAdmin = token?.role === "admin";
 
