@@ -157,7 +157,7 @@ export default function QuickBookPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Guests</Label>
                   <Input
@@ -173,12 +173,13 @@ export default function QuickBookPage() {
                   <Input
                     type="date"
                     value={bookingDate}
+                    min={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setBookingDate(e.target.value)}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Arrival</Label>
                   <Select value={arrivalTime} onValueChange={handleArrivalChange}>
@@ -219,9 +220,9 @@ export default function QuickBookPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading || !selectedTableId}>
+              <Button type="submit" className="w-full truncate" disabled={loading || !selectedTableId}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Create & Approve Booking
+                Create & Approve
               </Button>
             </form>
           </CardContent>
