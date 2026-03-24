@@ -110,42 +110,62 @@ export default function MobileQuickBookPage() {
     <div className="space-y-3 pb-4">
       <h1 className="text-lg font-bold tracking-tight">Quick Book</h1>
 
+      {/* Floor plan first - tap to select table */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">
+            Tap a green table to select
+          </Label>
+          {selectedTable && (
+            <span className="text-xs font-medium text-primary">
+              Table {selectedTable.tableNumber} ({selectedTable.seats} seats)
+            </span>
+          )}
+        </div>
+        <FloorPlanCanvas
+          mode="booking"
+          tables={tables}
+          visualElements={elements}
+          tableStatuses={tableStatuses}
+          selectedTableId={selectedTableId}
+          onTableSelect={setSelectedTableId}
+        />
+      </div>
+
       {/* Date & Time - compact row */}
-      <div className="space-y-2">
-        <div className="grid grid-cols-3 gap-2">
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">Date</Label>
-            <Input
-              type="date"
-              value={bookingDate}
-              onChange={(e) => setBookingDate(e.target.value)}
-              className="h-10 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">From</Label>
-            <select
-              value={arrivalTime}
-              onChange={(e) => setArrivalTime(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {PUB_HOURS.map((h) => (
-                <option key={h} value={h}>{h}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px] text-muted-foreground">To</Label>
-            <select
-              value={departureTime}
-              onChange={(e) => setDepartureTime(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {PUB_HOURS.map((h) => (
-                <option key={h} value={h}>{h}</option>
-              ))}
-            </select>
-          </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">Date</Label>
+          <Input
+            type="date"
+            value={bookingDate}
+            onChange={(e) => setBookingDate(e.target.value)}
+            className="h-10 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">From</Label>
+          <select
+            value={arrivalTime}
+            onChange={(e) => setArrivalTime(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {PUB_HOURS.map((h) => (
+              <option key={h} value={h}>{h}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">To</Label>
+          <select
+            value={departureTime}
+            onChange={(e) => setDepartureTime(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {PUB_HOURS.map((h) => (
+              <option key={h} value={h}>{h}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -173,29 +193,7 @@ export default function MobileQuickBookPage() {
         </div>
       </div>
 
-      {/* Floor plan - tap to select table */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <Label className="text-[11px] text-muted-foreground">
-            Tap a green table to select
-          </Label>
-          {selectedTable && (
-            <span className="text-xs font-medium text-primary">
-              Table {selectedTable.tableNumber} ({selectedTable.seats} seats)
-            </span>
-          )}
-        </div>
-        <FloorPlanCanvas
-          mode="booking"
-          tables={tables}
-          visualElements={elements}
-          tableStatuses={tableStatuses}
-          selectedTableId={selectedTableId}
-          onTableSelect={setSelectedTableId}
-        />
-      </div>
-
-      {/* Notes (collapsible) */}
+      {/* Notes */}
       <div className="space-y-1">
         <Label className="text-[11px] text-muted-foreground">Notes (optional)</Label>
         <Textarea
