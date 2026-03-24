@@ -40,6 +40,11 @@ export const elementTypeEnum = pgEnum("element_type", [
   "stage",
   "custom",
 ]);
+export const bookingSourceEnum = pgEnum("booking_source", [
+  "online",
+  "phone",
+  "voice",
+]);
 
 // ── Users ──────────────────────────────────────────────────────────────────────
 
@@ -175,6 +180,7 @@ export const bookings = pgTable(
     comment: text("comment"),
     guestEmail: varchar("guest_email", { length: 255 }),
     createdByAdmin: boolean("created_by_admin").default(false),
+    source: bookingSourceEnum("source").default("online"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
   },

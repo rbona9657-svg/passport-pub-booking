@@ -38,13 +38,23 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const parsed = createBookingSchema.safeParse(body);
+
+    // Check if admin — if so, guestEmail is optional
+    const session = await auth();
+    const isAdmin = session?.user?.role === "admin";
+
+    const schema = isAdmin
+      ? createBookingSchema.extend({ guestEmail: createBookingSchema.shape.guestEmail.optional() })
+      : createBookingSchema;
+
+    const parsed = schema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { tableId, reservationName, guestEmail, guestCount, bookingDate, arrivalTime, departureTime, comment } = parsed.data;
+    const { tableId, reservationName, guestCount, bookingDate, arrivalTime, departureTime, comment } = parsed.data;
+    const guestEmail = parsed.data.guestEmail || null;
 
     // Verify table exists and has enough seats
     const [table] = await db
@@ -69,9 +79,6 @@ export async function POST(req: NextRequest) {
     if (bookingDate < today) {
       return NextResponse.json({ error: "Cannot book for a past date" }, { status: 400 });
     }
-
-    // Check if user is signed in (optional for guests)
-    const session = await auth();
 
     // Create the booking
     const booking = await createBooking({
@@ -104,11 +111,11 @@ export async function POST(req: NextRequest) {
       comment,
     };
 
-    // Send confirmation email to guest (non-blocking)
-    sendBookingPending(guestEmail, emailData).catch(console.error);
-
-    // Send notification email to admin with approve button (non-blocking)
-    sendAdminNewBooking(booking.id, emailData, guestEmail).catch(console.error);
+    // Send emails only if guest email provided
+    if (guestEmail) {
+      sendBookingPending(guestEmail, emailData).catch(console.error);
+      sendAdminNewBooking(booking.id, emailData, guestEmail).catch(console.error);
+    }
 
     return NextResponse.json(booking, { status: 201 });
   } catch (error) {

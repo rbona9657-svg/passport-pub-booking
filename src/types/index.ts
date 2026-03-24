@@ -7,6 +7,7 @@ import type {
   bookings,
   pushSubscriptions,
   bookingStatusEnum,
+  bookingSourceEnum,
   tableShapeEnum,
   elementTypeEnum,
   roleEnum,
@@ -36,6 +37,7 @@ export type BookingStatus = (typeof bookingStatusEnum.enumValues)[number];
 export type TableShape = (typeof tableShapeEnum.enumValues)[number];
 export type ElementType = (typeof elementTypeEnum.enumValues)[number];
 export type UserRole = (typeof roleEnum.enumValues)[number];
+export type BookingSource = (typeof bookingSourceEnum.enumValues)[number];
 
 // ── Composite interfaces ──────────────────────────────────────────────────────
 

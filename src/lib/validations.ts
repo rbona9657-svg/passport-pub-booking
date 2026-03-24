@@ -29,6 +29,7 @@ export const quickBookSchema = z.object({
   arrivalTime: z.string().regex(/^\d{2}:\d{2}$/),
   departureTime: z.string().regex(/^\d{2}:\d{2}$/),
   comment: z.string().max(500).optional().nullable(),
+  source: z.enum(["online", "phone", "voice"]).optional(),
 });
 
 export const saveFloorPlanSchema = z.object({
