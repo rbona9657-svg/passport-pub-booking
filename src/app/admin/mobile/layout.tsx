@@ -10,9 +10,12 @@ import {
   Phone,
   Mic,
   LogOut,
+  Bell,
+  BellRing,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const tabs = [
   { href: "/admin/mobile/bookings", label: "Bookings", icon: CalendarDays },
@@ -24,6 +27,7 @@ const tabs = [
 export default function MobileAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { permission, isSubscribed, subscribe } = usePushNotifications();
 
   if (!session || session.user?.role !== "admin") {
     return null;
@@ -39,13 +43,30 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
           </div>
           <span className="text-sm font-semibold">Admin</span>
         </div>
-        <button
-          onClick={() => signOut({ callbackUrl: "/" })}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          Sign out
-        </button>
+        <div className="flex items-center gap-3">
+          {permission !== "granted" || !isSubscribed ? (
+            <button
+              onClick={subscribe}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              title="Enable push notifications"
+            >
+              <Bell className="h-3.5 w-3.5" />
+              Notifications
+            </button>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-primary" title="Notifications enabled">
+              <BellRing className="h-3.5 w-3.5" />
+              On
+            </span>
+          )}
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
+        </div>
       </header>
 
       {/* Main content */}
