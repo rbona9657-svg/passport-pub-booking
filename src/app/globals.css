@@ -119,19 +119,27 @@
   }
 }
 
-/* Fix native date picker for dark mode */
+/* Fix native date picker icon to white for dark mode */
 input[type="date"] {
   color-scheme: dark;
   cursor: pointer;
+  -webkit-appearance: none;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1) brightness(2);
   cursor: pointer;
-  opacity: 1;
+  opacity: 1 !important;
   padding: 4px;
   width: 20px;
   height: 20px;
+  -webkit-appearance: none;
+}
+
+/* Firefox date picker */
+input[type="date"]::-moz-calendar-picker-indicator {
+  filter: invert(1) brightness(2);
+  opacity: 1 !important;
 }
 
 .safe-area-pb {
