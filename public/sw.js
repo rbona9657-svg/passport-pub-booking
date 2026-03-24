@@ -1,14 +1,31 @@
 // Service Worker for Passport Pub PWA
-const CACHE_NAME = "passport-pub-v1";
+const CACHE_NAME = "passport-pub-v2";
+const APP_SHELL = [
+  "/admin/dashboard",
+  "/admin/mobile/quick-book",
+  "/admin/mobile/bookings",
+  "/admin/mobile/floor-plan",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/favicon.svg",
+];
 
-// Install event
+// Install: precache app shell
 self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+  );
   self.skipWaiting();
 });
 
-// Activate event
+// Activate: clean old caches
 self.addEventListener("activate", (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
 });
 
 // Push notification handler
@@ -29,7 +46,7 @@ self.addEventListener("push", (event) => {
     badge: "/icon-192.png",
     vibrate: [200, 100, 200],
     data: {
-      url: data.url || "/",
+      url: data.url || "/admin/dashboard",
     },
     actions: [
       { action: "open", title: "Open" },
@@ -48,50 +65,40 @@ self.addEventListener("notificationclick", (event) => {
 
   if (event.action === "dismiss") return;
 
-  const url = event.notification.data?.url || "/";
+  const url = event.notification.data?.url || "/admin/dashboard";
 
   event.waitUntil(
-    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      // Focus existing window if available
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && "focus" in client) {
           client.navigate(url);
           return client.focus();
         }
       }
-      // Open new window
-      return clients.openWindow(url);
+      return self.clients.openWindow(url);
     })
   );
 });
 
-// Basic fetch handler (network-first for API, cache-first for static)
+// Fetch handler: network-first with cache fallback
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests
+  // Skip non-GET, API, and auth routes
   if (request.method !== "GET") return;
+  if (url.pathname.startsWith("/api/")) return;
+  if (url.pathname.startsWith("/auth/")) return;
 
-  // Skip API routes and auth
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/")) return;
-
-  // Network-first strategy
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Cache successful responses
         if (response.ok && response.type === "basic") {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
       })
-      .catch(() => {
-        // Fall back to cache
-        return caches.match(request);
-      })
+      .catch(() => caches.match(request))
   );
 });

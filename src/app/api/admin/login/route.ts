@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       },
       secret,
       salt: cookieName,
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: 90 * 24 * 60 * 60, // 90 days
     });
 
     const response = NextResponse.json({ ok: true });
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       secure: !!isSecure,
       sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge: 90 * 24 * 60 * 60, // 90 days
     });
 
     return response;

@@ -1,12 +1,14 @@
 {
-  "name": "Passport Pub - Table Booking",
-  "short_name": "Passport Pub",
-  "description": "Book your table at Passport Pub, Budapest",
-  "start_url": "/book",
+  "name": "Passport Pub Admin",
+  "short_name": "PP Admin",
+  "description": "Manage bookings and floor plans at Passport Pub",
+  "start_url": "/admin/dashboard",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#1a1a2e",
   "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/icon-192.png",

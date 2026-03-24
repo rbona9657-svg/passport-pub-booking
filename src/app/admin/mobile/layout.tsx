@@ -12,6 +12,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+import InstallPrompt from "@/components/pwa/InstallPrompt";
 
 const tabs = [
   { href: "/admin/mobile/bookings", label: "Bookings", icon: CalendarDays },
@@ -76,6 +77,8 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
           })}
         </div>
       </nav>
+
+      <InstallPrompt />
     </div>
   );
 }

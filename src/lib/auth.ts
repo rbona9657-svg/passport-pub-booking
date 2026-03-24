@@ -16,6 +16,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   }),
   session: {
     strategy: "jwt",
+    maxAge: 90 * 24 * 60 * 60, // 90 days - keeps admin signed in on PWA
   },
   pages: {
     signIn: "/auth/signin",
