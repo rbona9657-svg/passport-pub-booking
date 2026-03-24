@@ -63,8 +63,15 @@ function groupByTime(bookings: BookingWithDetails[]) {
   });
 }
 
+function toLocalDateString(d: Date) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function MobileBookingsPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = toLocalDateString(new Date());
   const [date, setDate] = useState(today);
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,9 +99,9 @@ export default function MobileBookingsPage() {
   }, [fetchBookings]);
 
   const changeDate = (offset: number) => {
-    const d = new Date(date + "T00:00:00");
+    const d = new Date(date + "T12:00:00");
     d.setDate(d.getDate() + offset);
-    setDate(d.toISOString().split("T")[0]);
+    setDate(toLocalDateString(d));
   };
 
   const handleApprove = async (id: string) => {
