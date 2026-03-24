@@ -109,17 +109,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account }) {
+      // Always allow credentials provider sign-ins
+      if (account?.provider === "credentials") {
+        return true;
+      }
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      // On initial sign-in, persist user id and role from the authorize response
       if (user?.id) {
         token.id = user.id;
+        // For credentials provider, use role from authorize directly
+        if (account?.provider === "credentials" && (user as Record<string, unknown>).role) {
+          token.role = (user as Record<string, unknown>).role as string;
+          return token;
+        }
       }
+      // For subsequent requests, look up role from DB
       if (token.id) {
-        const dbUser = await db
-          .select({ role: users.role })
-          .from(users)
-          .where(eq(users.id, token.id as string))
-          .limit(1);
-        token.role = dbUser[0]?.role ?? "user";
+        try {
+          const dbUser = await db
+            .select({ role: users.role })
+            .from(users)
+            .where(eq(users.id, token.id as string))
+            .limit(1);
+          token.role = dbUser[0]?.role ?? "user";
+        } catch {
+          token.role = token.role ?? "user";
+        }
       }
       return token;
     },

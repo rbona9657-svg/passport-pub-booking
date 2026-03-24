@@ -27,16 +27,18 @@ export default function SignInPage() {
         email,
         password,
         redirect: false,
+        callbackUrl: "/admin/dashboard",
       });
 
-      if (result?.error) {
+      if (!result?.ok || result?.error) {
         setError("Invalid email or password");
+        setLoading(false);
       } else {
-        router.push("/admin/dashboard");
+        // Full page reload to pick up the new session cookie
+        window.location.href = "/admin/dashboard";
       }
     } catch {
       setError("Something went wrong. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
