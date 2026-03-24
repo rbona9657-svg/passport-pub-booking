@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { Group, Rect, Circle, Ellipse, Text, Ring } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
+import type Konva from "konva";
 import type { PubTable } from "@/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,6 +32,7 @@ interface TableShapeProps {
   onSelect?: () => void;
   onDragEnd?: (x: number, y: number) => void;
   onDblClick?: () => void;
+  onTransformEnd?: (node: Konva.Node) => void;
 }
 
 export default function TableShape({
@@ -41,11 +43,14 @@ export default function TableShape({
   onSelect,
   onDragEnd,
   onDblClick,
+  onTransformEnd,
 }: TableShapeProps) {
+  const groupRef = useRef<Konva.Group>(null);
   const w = table.width ?? 80;
   const h = table.height ?? 80;
   const shape = table.shape ?? "rect";
   const isBooking = mode === "booking";
+  const isEditor = mode === "editor";
 
   // Colors
   let fill: string;
@@ -59,6 +64,10 @@ export default function TableShape({
   } else if (isBooking && status) {
     fill = STATUS_FILLS[status] || STATUS_COLORS[status];
     stroke = STATUS_COLORS[status];
+    strokeWidth = 2;
+  } else if (isEditor && isSelected) {
+    fill = "#dbeafe";
+    stroke = "#3b82f6";
     strokeWidth = 2;
   } else {
     fill = EDITOR_FILL;
@@ -83,6 +92,19 @@ export default function TableShape({
   const handleClick = useCallback(() => {
     if (isClickable && onSelect) onSelect();
   }, [isClickable, onSelect]);
+
+  // Handle transform end
+  useEffect(() => {
+    if (!isEditor || !groupRef.current) return;
+    const group = groupRef.current;
+    const handler = () => {
+      onTransformEnd?.(group);
+    };
+    group.on("transformend", handler);
+    return () => {
+      group.off("transformend", handler);
+    };
+  }, [isEditor, onTransformEnd]);
 
   const tableLabel = table.tableNumber.startsWith("T") ? table.tableNumber : `T${table.tableNumber}`;
   const seatLabel = `${table.seats} seats`;
@@ -141,10 +163,12 @@ export default function TableShape({
 
   return (
     <Group
+      id={table.id}
+      ref={groupRef as React.RefObject<Konva.Group>}
       x={table.positionX}
       y={table.positionY}
       rotation={table.rotation ?? 0}
-      draggable={mode === "editor"}
+      draggable={isEditor}
       onDragEnd={handleDragEnd}
       onClick={handleClick}
       onTap={handleClick}

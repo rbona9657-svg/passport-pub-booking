@@ -16,7 +16,6 @@ import {
   Save,
   Loader2,
   Plus,
-  Layers,
   Square,
   Circle,
   RectangleHorizontal,
@@ -26,6 +25,8 @@ import {
   Mic,
   PanelTop,
   Tag,
+  Copy,
+  ClipboardPaste,
 } from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
 
@@ -38,9 +39,11 @@ export default function MobileFloorPlanPage() {
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
   const [name, setName] = useState("Main Floor");
-  const [selectedTable, setSelectedTable] = useState<PubTable | null>(null);
+  const [selectedEditorId, setSelectedEditorId] = useState<string | null>(null);
+  const [configTable, setConfigTable] = useState<PubTable | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [toolbarOpen, setToolbarOpen] = useState(false);
+  const [copiedSize, setCopiedSize] = useState<{ width: number; height: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -124,10 +127,11 @@ export default function MobileFloorPlanPage() {
     setElements(updatedElements);
   }, []);
 
+  // Double-tap table opens config
   const handleTableSelect = (tableId: string) => {
     const table = tables.find((t) => t.id === tableId);
     if (table) {
-      setSelectedTable(table);
+      setConfigTable(table);
       setConfigOpen(true);
     }
   };
@@ -135,20 +139,55 @@ export default function MobileFloorPlanPage() {
   const handleTableConfigSave = (updates: { tableNumber: string; seats: number; shape: string }) => {
     setTables((prev) =>
       prev.map((t) =>
-        t.id === selectedTable?.id
+        t.id === configTable?.id
           ? { ...t, tableNumber: updates.tableNumber, seats: updates.seats, shape: updates.shape as PubTable["shape"] }
           : t
       )
     );
     setConfigOpen(false);
-    setSelectedTable(null);
+    setConfigTable(null);
   };
 
   const handleTableDelete = () => {
-    if (selectedTable) {
-      setTables((prev) => prev.filter((t) => t.id !== selectedTable.id));
+    if (configTable) {
+      setTables((prev) => prev.filter((t) => t.id !== configTable.id));
       setConfigOpen(false);
-      setSelectedTable(null);
+      setConfigTable(null);
+      setSelectedEditorId(null);
+    }
+  };
+
+  const handleCopySize = () => {
+    if (!selectedEditorId) return;
+    const t = tables.find((t) => t.id === selectedEditorId);
+    if (t) {
+      setCopiedSize({ width: t.width ?? 80, height: t.height ?? 80 });
+      toast({ title: "Size copied" });
+      return;
+    }
+    const e = elements.find((e) => e.id === selectedEditorId);
+    if (e) {
+      setCopiedSize({ width: e.width ?? 60, height: e.height ?? 60 });
+      toast({ title: "Size copied" });
+    }
+  };
+
+  const handlePasteSize = () => {
+    if (!selectedEditorId || !copiedSize) return;
+    if (tables.find((t) => t.id === selectedEditorId)) {
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === selectedEditorId ? { ...t, width: copiedSize.width, height: copiedSize.height } : t
+        )
+      );
+      toast({ title: "Size applied" });
+    } else if (elements.find((e) => e.id === selectedEditorId)) {
+      setElements((prev) =>
+        prev.map((e) =>
+          e.id === selectedEditorId ? { ...e, width: copiedSize.width, height: copiedSize.height } : e
+        )
+      );
+      toast({ title: "Size applied" });
     }
   };
 
@@ -160,12 +199,17 @@ export default function MobileFloorPlanPage() {
     );
   }
 
+  // Get selected item info
+  const selectedItem = selectedEditorId
+    ? tables.find((t) => t.id === selectedEditorId) || elements.find((e) => e.id === selectedEditorId)
+    : null;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold tracking-tight">Floor Plan</h1>
-          <p className="text-xs text-muted-foreground">Drag tables to rearrange. Tap to edit.</p>
+          <p className="text-xs text-muted-foreground">Drag to move. Use handles to resize.</p>
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving} className="h-9">
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
@@ -181,8 +225,40 @@ export default function MobileFloorPlanPage() {
           visualElements={elements}
           onTableSelect={handleTableSelect}
           onLayoutChange={handleLayoutChange}
+          selectedEditorId={selectedEditorId}
+          onEditorSelect={setSelectedEditorId}
         />
       </div>
+
+      {/* Selection toolbar - appears when an item is selected */}
+      {selectedItem && (
+        <div className="flex items-center gap-2 rounded-lg border bg-muted/50 p-2">
+          <span className="text-xs text-muted-foreground flex-1 truncate">
+            {('tableNumber' in selectedItem) ? `Table ${(selectedItem as PubTable).tableNumber}` : `${(selectedItem as VisualElement).type}`}
+            {" "}&middot;{" "}
+            {(selectedItem as { width?: number | null }).width ?? 80} x {(selectedItem as { height?: number | null }).height ?? 80}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2 text-xs"
+            onClick={handleCopySize}
+          >
+            <Copy className="h-3.5 w-3.5 mr-1" />
+            Copy Size
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2 text-xs"
+            onClick={handlePasteSize}
+            disabled={!copiedSize}
+          >
+            <ClipboardPaste className="h-3.5 w-3.5 mr-1" />
+            Paste
+          </Button>
+        </div>
+      )}
 
       {/* Floating add button */}
       <div className="fixed bottom-20 right-4 z-40">
@@ -260,7 +336,7 @@ export default function MobileFloorPlanPage() {
 
       {/* Table config dialog */}
       <TableConfigDialog
-        table={selectedTable}
+        table={configTable}
         open={configOpen}
         onOpenChange={setConfigOpen}
         onSave={handleTableConfigSave}

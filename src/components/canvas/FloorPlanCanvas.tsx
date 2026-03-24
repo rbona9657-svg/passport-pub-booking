@@ -7,7 +7,7 @@ import {
   useEffect,
   useMemo,
 } from "react";
-import { Stage, Layer, Rect, Line } from "react-konva";
+import { Stage, Layer, Rect, Line, Transformer } from "react-konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type Konva from "konva";
 import type { PubTable, VisualElement } from "@/types";
@@ -34,6 +34,8 @@ interface FloorPlanCanvasProps {
     tables: PubTable[],
     elements: VisualElement[]
   ) => void;
+  selectedEditorId?: string | null;
+  onEditorSelect?: (id: string | null) => void;
 }
 
 function getContentBounds(tables: PubTable[], visualElements: VisualElement[]) {
@@ -60,9 +62,12 @@ export default function FloorPlanCanvas({
   selectedTableId,
   onTableSelect,
   onLayoutChange,
+  selectedEditorId,
+  onEditorSelect,
 }: FloorPlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
+  const transformerRef = useRef<Konva.Transformer | null>(null);
   const [stageSize, setStageSize] = useState({ width: 800, height: 500 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -83,9 +88,10 @@ export default function FloorPlanCanvas({
         const bounds = getContentBounds(tables, visualElements);
         const contentW = bounds.maxX - bounds.minX;
         const contentH = bounds.maxY - bounds.minY;
-        const aspectRatio = contentH / contentW;
 
-        const canvasHeight = Math.min(contentW * aspectRatio * (containerWidth / contentW), window.innerHeight * 0.6);
+        // Limit canvas height on mobile for quick-book usability
+        const maxCanvasH = mobile ? window.innerHeight * 0.4 : window.innerHeight * 0.6;
+        const canvasHeight = Math.min(contentW * (contentH / contentW) * (containerWidth / contentW), maxCanvasH);
         const finalScale = Math.min(containerWidth / contentW, canvasHeight / contentH);
         const pos = {
           x: (containerWidth - contentW * finalScale) / 2 - bounds.minX * finalScale,
@@ -97,9 +103,8 @@ export default function FloorPlanCanvas({
         setPosition(pos);
         initialFitRef.current = { scale: finalScale, position: pos };
       } else {
-        const isMobile = containerWidth < 640;
-        const maxH = isMobile ? 600 : 700;
-        const minH = 400;
+        const maxH = mobile ? 500 : 700;
+        const minH = 350;
         const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
         setStageSize({ width: containerWidth, height });
       }
@@ -109,6 +114,29 @@ export default function FloorPlanCanvas({
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
   }, [mode, tables.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Attach Transformer to selected editor node
+  useEffect(() => {
+    if (mode !== "editor" || !transformerRef.current || !stageRef.current) return;
+    const tr = transformerRef.current;
+
+    if (!selectedEditorId) {
+      tr.nodes([]);
+      tr.getLayer()?.batchDraw();
+      return;
+    }
+
+    // Find the Group node for the selected item
+    const stage = stageRef.current;
+    const node = stage.findOne(`#${selectedEditorId}`);
+    if (node) {
+      tr.nodes([node]);
+      tr.getLayer()?.batchDraw();
+    } else {
+      tr.nodes([]);
+      tr.getLayer()?.batchDraw();
+    }
+  }, [selectedEditorId, mode, tables, visualElements]);
 
   // Grid lines (editor only)
   const gridLines = useMemo(() => {
@@ -184,6 +212,73 @@ export default function FloorPlanCanvas({
     [tables, visualElements, onLayoutChange]
   );
 
+  // Handle transform end (resize) for tables
+  const handleTableTransformEnd = useCallback(
+    (tableId: string, node: Konva.Node) => {
+      if (!onLayoutChange) return;
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      const table = tables.find((t) => t.id === tableId);
+      if (!table) return;
+
+      const newWidth = Math.round(((table.width ?? 80) * scaleX) / GRID_SIZE) * GRID_SIZE;
+      const newHeight = Math.round(((table.height ?? 80) * scaleY) / GRID_SIZE) * GRID_SIZE;
+
+      // Reset scale to 1 and apply to width/height
+      node.scaleX(1);
+      node.scaleY(1);
+
+      const x = Math.round(node.x() / GRID_SIZE) * GRID_SIZE;
+      const y = Math.round(node.y() / GRID_SIZE) * GRID_SIZE;
+
+      const updatedTables = tables.map((t) =>
+        t.id === tableId
+          ? { ...t, width: Math.max(40, newWidth), height: Math.max(40, newHeight), positionX: x, positionY: y }
+          : t
+      );
+      onLayoutChange(updatedTables, visualElements);
+    },
+    [tables, visualElements, onLayoutChange]
+  );
+
+  // Handle transform end (resize) for visual elements
+  const handleElementTransformEnd = useCallback(
+    (elementId: string, node: Konva.Node) => {
+      if (!onLayoutChange) return;
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      const element = visualElements.find((e) => e.id === elementId);
+      if (!element) return;
+
+      const newWidth = Math.round(((element.width ?? 60) * scaleX) / GRID_SIZE) * GRID_SIZE;
+      const newHeight = Math.round(((element.height ?? 60) * scaleY) / GRID_SIZE) * GRID_SIZE;
+
+      node.scaleX(1);
+      node.scaleY(1);
+
+      const x = Math.round(node.x() / GRID_SIZE) * GRID_SIZE;
+      const y = Math.round(node.y() / GRID_SIZE) * GRID_SIZE;
+
+      const updatedElements = visualElements.map((el) =>
+        el.id === elementId
+          ? { ...el, width: Math.max(20, newWidth), height: Math.max(20, newHeight), positionX: x, positionY: y }
+          : el
+      );
+      onLayoutChange(tables, updatedElements);
+    },
+    [tables, visualElements, onLayoutChange]
+  );
+
+  // Click/tap stage background to deselect in editor
+  const handleStageClick = useCallback(
+    (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+      if (mode === "editor" && e.target === stageRef.current) {
+        onEditorSelect?.(null);
+      }
+    },
+    [mode, onEditorSelect]
+  );
+
   // Zoom controls
   const zoomInFn = useCallback(() => {
     const center = { x: stageSize.width / 2, y: stageSize.height / 2 };
@@ -238,7 +333,6 @@ export default function FloorPlanCanvas({
     if (!stage) return;
 
     let lastDist = 0;
-    let lastCenter = { x: 0, y: 0 };
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length < 2) return;
@@ -251,7 +345,6 @@ export default function FloorPlanCanvas({
 
       if (lastDist === 0) {
         lastDist = dist;
-        lastCenter = center;
         return;
       }
 
@@ -273,7 +366,6 @@ export default function FloorPlanCanvas({
       });
 
       lastDist = dist;
-      lastCenter = center;
     };
 
     const handleTouchEnd = () => {
@@ -291,6 +383,7 @@ export default function FloorPlanCanvas({
   }, [mode, position]);
 
   const isBooking = mode === "booking";
+  const isEditor = mode === "editor";
   const bgFill = isBooking ? "#1e293b" : "#fafafa";
 
   return (
@@ -311,6 +404,8 @@ export default function FloorPlanCanvas({
         draggable={isBooking ? isMobile : true}
         onWheel={isBooking && !isMobile ? undefined : handleWheel}
         onDragEnd={isBooking && !isMobile ? undefined : handleDragEnd}
+        onClick={handleStageClick}
+        onTap={handleStageClick}
       >
         {/* Background */}
         <Layer listening={false}>
@@ -327,7 +422,10 @@ export default function FloorPlanCanvas({
               key={element.id}
               element={element}
               mode={mode}
+              isSelected={isEditor && selectedEditorId === element.id}
+              onSelect={isEditor ? () => onEditorSelect?.(element.id) : undefined}
               onDragEnd={!isBooking ? (x, y) => handleElementDragEnd(element.id, x, y) : undefined}
+              onTransformEnd={isEditor ? (node) => handleElementTransformEnd(element.id, node) : undefined}
             />
           ))}
         </Layer>
@@ -340,34 +438,59 @@ export default function FloorPlanCanvas({
               table={table}
               mode={mode}
               status={tableStatuses[table.id]}
-              isSelected={selectedTableId === table.id}
-              onSelect={onTableSelect ? () => onTableSelect(table.id) : undefined}
+              isSelected={isBooking ? selectedTableId === table.id : selectedEditorId === table.id}
+              onSelect={isBooking
+                ? (onTableSelect ? () => onTableSelect(table.id) : undefined)
+                : (() => onEditorSelect?.(table.id))
+              }
               onDragEnd={!isBooking ? (x, y) => handleTableDragEnd(table.id, x, y) : undefined}
+              onTransformEnd={isEditor ? (node) => handleTableTransformEnd(table.id, node) : undefined}
             />
           ))}
+
+          {/* Transformer for editor mode */}
+          {isEditor && (
+            <Transformer
+              ref={transformerRef as React.RefObject<Konva.Transformer>}
+              anchorSize={10}
+              anchorCornerRadius={2}
+              borderStroke="#3b82f6"
+              anchorStroke="#3b82f6"
+              anchorFill="#fff"
+              rotateEnabled={false}
+              keepRatio={false}
+              boundBoxFunc={(_oldBox, newBox) => {
+                // Minimum size
+                if (newBox.width < 30 || newBox.height < 20) {
+                  return _oldBox;
+                }
+                return newBox;
+              }}
+            />
+          )}
         </Layer>
       </Stage>
 
-      {/* Zoom controls for booking mode - mobile only */}
-      {isBooking && isMobile && (
-        <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
+      {/* Zoom controls for booking mode */}
+      {isBooking && (
+        <div className="absolute bottom-2 right-2 flex gap-1">
           <button
             onClick={zoomInFn}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/80 text-white backdrop-blur-sm hover:bg-slate-600 active:bg-slate-500 transition-colors shadow-lg"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-md active:bg-white transition-colors"
             aria-label="Zoom in"
           >
             <ZoomIn className="h-4 w-4" />
           </button>
           <button
             onClick={zoomOutFn}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/80 text-white backdrop-blur-sm hover:bg-slate-600 active:bg-slate-500 transition-colors shadow-lg"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-md active:bg-white transition-colors"
             aria-label="Zoom out"
           >
             <ZoomOut className="h-4 w-4" />
           </button>
           <button
             onClick={resetFit}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/80 text-white backdrop-blur-sm hover:bg-slate-600 active:bg-slate-500 transition-colors shadow-lg"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-slate-700 shadow-md active:bg-white transition-colors"
             aria-label="Reset zoom"
           >
             <Maximize2 className="h-4 w-4" />

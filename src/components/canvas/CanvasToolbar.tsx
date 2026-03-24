@@ -8,6 +8,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Plus,
   Layers,
   Save,
@@ -24,6 +30,8 @@ import {
   RectangleHorizontal,
   PanelTop,
   Tag,
+  Copy,
+  ClipboardPaste,
 } from "lucide-react";
 
 interface CanvasToolbarProps {
@@ -33,7 +41,38 @@ interface CanvasToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
+  onCopySize?: () => void;
+  onPasteSize?: () => void;
+  hasCopiedSize?: boolean;
+  hasSelection?: boolean;
   saving?: boolean;
+}
+
+function ToolbarButton({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: React.ElementType;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={onClick} disabled={disabled}>
+            <Icon className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="text-xs">
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 export default function CanvasToolbar({
@@ -43,6 +82,10 @@ export default function CanvasToolbar({
   onZoomIn,
   onZoomOut,
   onResetZoom,
+  onCopySize,
+  onPasteSize,
+  hasCopiedSize = false,
+  hasSelection = false,
   saving = false,
 }: CanvasToolbarProps) {
   return (
@@ -112,31 +155,30 @@ export default function CanvasToolbar({
       {/* Separator */}
       <div className="mx-1 h-px bg-border" />
 
+      {/* Copy/Paste Size */}
+      {onCopySize && (
+        <ToolbarButton
+          icon={Copy}
+          label="Copy Size"
+          onClick={onCopySize}
+          disabled={!hasSelection}
+        />
+      )}
+      {onPasteSize && (
+        <ToolbarButton
+          icon={ClipboardPaste}
+          label="Paste Size"
+          onClick={onPasteSize}
+          disabled={!hasSelection || !hasCopiedSize}
+        />
+      )}
+
+      {(onCopySize || onPasteSize) && <div className="mx-1 h-px bg-border" />}
+
       {/* Zoom controls */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onZoomIn}
-        title="Zoom In"
-      >
-        <ZoomIn className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onZoomOut}
-        title="Zoom Out"
-      >
-        <ZoomOut className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onResetZoom}
-        title="Reset Zoom"
-      >
-        <Maximize className="h-4 w-4" />
-      </Button>
+      <ToolbarButton icon={ZoomIn} label="Zoom In" onClick={onZoomIn} />
+      <ToolbarButton icon={ZoomOut} label="Zoom Out" onClick={onZoomOut} />
+      <ToolbarButton icon={Maximize} label="Reset Zoom" onClick={onResetZoom} />
 
       {/* Separator */}
       <div className="mx-1 h-px bg-border" />

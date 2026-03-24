@@ -24,11 +24,12 @@ export default function FloorPlanEditor() {
   const [name, setName] = useState("Main Floor");
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
-  const [selectedTable, setSelectedTable] = useState<PubTable | null>(null);
+  const [selectedEditorId, setSelectedEditorId] = useState<string | null>(null);
+  const [configTable, setConfigTable] = useState<PubTable | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
+  const [copiedSize, setCopiedSize] = useState<{ width: number; height: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [stageScale, setStageScale] = useState(1);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -108,10 +109,11 @@ export default function FloorPlanEditor() {
     setElements(updatedElements);
   }, []);
 
+  // Double-click table to open config
   const handleTableSelect = (tableId: string) => {
     const table = tables.find((t) => t.id === tableId);
     if (table) {
-      setSelectedTable(table);
+      setConfigTable(table);
       setConfigOpen(true);
     }
   };
@@ -119,22 +121,63 @@ export default function FloorPlanEditor() {
   const handleTableConfigSave = (updates: { tableNumber: string; seats: number; shape: string }) => {
     setTables((prev) =>
       prev.map((t) =>
-        t.id === selectedTable?.id
+        t.id === configTable?.id
           ? { ...t, tableNumber: updates.tableNumber, seats: updates.seats, shape: updates.shape as PubTable["shape"] }
           : t
       )
     );
     setConfigOpen(false);
-    setSelectedTable(null);
+    setConfigTable(null);
   };
 
   const handleTableDelete = () => {
-    if (selectedTable) {
-      setTables((prev) => prev.filter((t) => t.id !== selectedTable.id));
+    if (configTable) {
+      setTables((prev) => prev.filter((t) => t.id !== configTable.id));
       setConfigOpen(false);
-      setSelectedTable(null);
+      setConfigTable(null);
+      setSelectedEditorId(null);
     }
   };
+
+  // Copy size from selected object
+  const handleCopySize = useCallback(() => {
+    if (!selectedEditorId) return;
+    const table = tables.find((t) => t.id === selectedEditorId);
+    if (table) {
+      setCopiedSize({ width: table.width ?? 80, height: table.height ?? 80 });
+      toast({ title: "Size copied", description: `${table.width ?? 80} x ${table.height ?? 80}` });
+      return;
+    }
+    const element = elements.find((e) => e.id === selectedEditorId);
+    if (element) {
+      setCopiedSize({ width: element.width ?? 60, height: element.height ?? 60 });
+      toast({ title: "Size copied", description: `${element.width ?? 60} x ${element.height ?? 60}` });
+    }
+  }, [selectedEditorId, tables, elements, toast]);
+
+  // Paste size to selected object
+  const handlePasteSize = useCallback(() => {
+    if (!selectedEditorId || !copiedSize) return;
+    const tableIdx = tables.findIndex((t) => t.id === selectedEditorId);
+    if (tableIdx >= 0) {
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === selectedEditorId ? { ...t, width: copiedSize.width, height: copiedSize.height } : t
+        )
+      );
+      toast({ title: "Size applied" });
+      return;
+    }
+    const elemIdx = elements.findIndex((e) => e.id === selectedEditorId);
+    if (elemIdx >= 0) {
+      setElements((prev) =>
+        prev.map((e) =>
+          e.id === selectedEditorId ? { ...e, width: copiedSize.width, height: copiedSize.height } : e
+        )
+      );
+      toast({ title: "Size applied" });
+    }
+  }, [selectedEditorId, copiedSize, tables, elements, toast]);
 
   if (loading) {
     return (
@@ -149,7 +192,7 @@ export default function FloorPlanEditor() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Floor Plan Editor</h1>
-          <p className="text-muted-foreground">Drag and drop tables to design your layout</p>
+          <p className="text-muted-foreground">Drag to move, drag handles to resize. Double-click a table to edit.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -173,9 +216,25 @@ export default function FloorPlanEditor() {
           onAddTable={handleAddTable}
           onAddElement={handleAddElement}
           onSave={handleSave}
-          onZoomIn={() => setStageScale((s) => Math.min(s + 0.2, 3))}
-          onZoomOut={() => setStageScale((s) => Math.max(s - 0.2, 0.3))}
-          onResetZoom={() => setStageScale(1)}
+          onZoomIn={() => {
+            const el = document.querySelector("[data-canvas]") as HTMLElement | null;
+            const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => void> | undefined;
+            controls?.zoomIn?.();
+          }}
+          onZoomOut={() => {
+            const el = document.querySelector("[data-canvas]") as HTMLElement | null;
+            const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => void> | undefined;
+            controls?.zoomOut?.();
+          }}
+          onResetZoom={() => {
+            const el = document.querySelector("[data-canvas]") as HTMLElement | null;
+            const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => void> | undefined;
+            controls?.resetZoom?.();
+          }}
+          onCopySize={handleCopySize}
+          onPasteSize={handlePasteSize}
+          hasCopiedSize={!!copiedSize}
+          hasSelection={!!selectedEditorId}
           saving={saving}
         />
 
@@ -185,11 +244,28 @@ export default function FloorPlanEditor() {
           visualElements={elements}
           onTableSelect={handleTableSelect}
           onLayoutChange={handleLayoutChange}
+          selectedEditorId={selectedEditorId}
+          onEditorSelect={setSelectedEditorId}
         />
       </div>
 
+      {/* Size info for selected item */}
+      {selectedEditorId && (() => {
+        const t = tables.find((t) => t.id === selectedEditorId);
+        const e = elements.find((e) => e.id === selectedEditorId);
+        const w = t ? (t.width ?? 80) : e ? (e.width ?? 60) : null;
+        const h = t ? (t.height ?? 80) : e ? (e.height ?? 60) : null;
+        if (w === null) return null;
+        return (
+          <div className="text-xs text-muted-foreground">
+            Selected: {w} x {h}px
+            {copiedSize && <span className="ml-3">Clipboard: {copiedSize.width} x {copiedSize.height}px</span>}
+          </div>
+        );
+      })()}
+
       <TableConfigDialog
-        table={selectedTable}
+        table={configTable}
         open={configOpen}
         onOpenChange={setConfigOpen}
         onSave={handleTableConfigSave}
