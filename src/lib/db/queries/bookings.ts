@@ -61,10 +61,11 @@ export async function getTableStatuses(
 }
 
 export async function createBooking(data: {
-  userId: string;
+  userId?: string | null;
   tableId: string;
   reservationName: string;
   guestCount: number;
+  guestEmail?: string | null;
   bookingDate: string;
   arrivalTime: string;
   departureTime: string;
@@ -75,10 +76,11 @@ export async function createBooking(data: {
   const [booking] = await db
     .insert(bookings)
     .values({
-      userId: data.userId,
+      userId: data.userId ?? null,
       tableId: data.tableId,
       reservationName: data.reservationName,
       guestCount: data.guestCount,
+      guestEmail: data.guestEmail ?? null,
       bookingDate: data.bookingDate,
       arrivalTime: data.arrivalTime,
       departureTime: data.departureTime,
@@ -104,7 +106,7 @@ export async function getBookingById(id: string) {
     })
     .from(bookings)
     .innerJoin(tables, eq(tables.id, bookings.tableId))
-    .innerJoin(users, eq(users.id, bookings.userId))
+    .leftJoin(users, eq(users.id, bookings.userId))
     .where(eq(bookings.id, id))
     .limit(1);
 
@@ -159,7 +161,7 @@ export async function getAdminBookings(filters?: {
     })
     .from(bookings)
     .innerJoin(tables, eq(tables.id, bookings.tableId))
-    .innerJoin(users, eq(users.id, bookings.userId))
+    .leftJoin(users, eq(users.id, bookings.userId))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(bookings.createdAt));
 

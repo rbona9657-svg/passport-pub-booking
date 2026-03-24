@@ -34,12 +34,6 @@ export default function HomePage() {
                 >
                   Book a Table
                 </Link>
-                <Link
-                  href="/my-bookings"
-                  className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-background px-8 text-base font-semibold transition-all hover:bg-accent"
-                >
-                  My Bookings
-                </Link>
               </div>
             </div>
           </div>

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { PUB_HOURS } from "@/lib/constants";
-import { CalendarDays, Clock, Users, MapPin, Loader2, LogIn, MessageSquare } from "lucide-react";
+import {
+  CalendarDays,
+  Clock,
+  Users,
+  MapPin,
+  Loader2,
+  MessageSquare,
+  Mail,
+  User,
+  AlertTriangle,
+} from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
 
 const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanvas"), {
@@ -26,7 +34,6 @@ const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanva
 });
 
 export default function BookPage() {
-  const { data: session } = useSession();
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
@@ -36,10 +43,12 @@ export default function BookPage() {
   const [arrivalTime, setArrivalTime] = useState("19:00");
   const [departureTime, setDepartureTime] = useState("21:00");
   const [reservationName, setReservationName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
   const [guestCount, setGuestCount] = useState("2");
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Load floor plan
@@ -65,7 +74,6 @@ export default function BookPage() {
       .then((res) => res.json())
       .then((data) => {
         setTableStatuses(data);
-        // Deselect if table became unavailable
         if (selectedTableId && data[selectedTableId] === "booked") {
           setSelectedTableId(null);
         }
@@ -76,9 +84,20 @@ export default function BookPage() {
   const selectedTable = tables.find((t) => t.id === selectedTableId);
   const today = new Date().toISOString().split("T")[0];
 
+  // Check capacity when guest count or selected table changes
+  useEffect(() => {
+    if (selectedTable && parseInt(guestCount) > selectedTable.seats) {
+      setCapacityWarning(
+        `Table ${selectedTable.tableNumber} only has ${selectedTable.seats} seats, but you need seating for ${guestCount} guests. Please choose a larger table or book additional tables.`
+      );
+    } else {
+      setCapacityWarning(null);
+    }
+  }, [guestCount, selectedTable]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTableId) return;
+    if (!selectedTableId || capacityWarning) return;
 
     setLoading(true);
     try {
@@ -88,6 +107,7 @@ export default function BookPage() {
         body: JSON.stringify({
           tableId: selectedTableId,
           reservationName,
+          guestEmail,
           guestCount: parseInt(guestCount),
           bookingDate,
           arrivalTime,
@@ -98,7 +118,7 @@ export default function BookPage() {
 
       if (res.ok) {
         setSubmitted(true);
-        toast({ title: "Booking submitted!", description: "We'll notify you once it's confirmed." });
+        toast({ title: "Booking submitted!", description: "Check your email for confirmation details." });
         // Refresh availability
         const statusRes = await fetch(
           `/api/tables/availability?floorPlanId=${floorPlanId}&date=${bookingDate}&arrival=${arrivalTime}&departure=${departureTime}`
@@ -124,6 +144,7 @@ export default function BookPage() {
     if (status === "booked") return;
     setSelectedTableId(tableId === selectedTableId ? null : tableId);
     setSubmitted(false);
+    setCapacityWarning(null);
   };
 
   return (
@@ -191,7 +212,7 @@ export default function BookPage() {
             <span className="h-3 w-3 rounded-full bg-green-500" /> Available
           </span>
           <span className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full bg-yellow-500" /> Pending
+            <span className="h-3 w-3 rounded-full bg-yellow-500" /> Pending Approval
           </span>
           <span className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-red-500" /> Booked
@@ -213,6 +234,25 @@ export default function BookPage() {
           />
         </div>
 
+        {/* Capacity Warning */}
+        {capacityWarning && selectedTable && (
+          <Card className="mb-6 border-amber-500/40 bg-amber-500/5 animate-in slide-in-from-bottom-4 duration-300">
+            <CardContent className="py-5">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-amber-200">Not Enough Seats</h3>
+                  <p className="text-sm text-amber-300/80 mt-1">{capacityWarning}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Booking Form */}
         {selectedTable && !submitted && (
           <Card className="border-primary/30 shadow-lg animate-in slide-in-from-bottom-4 duration-300">
@@ -223,44 +263,51 @@ export default function BookPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {!session ? (
-                <div className="text-center py-6">
-                  <p className="text-muted-foreground mb-4">Sign in to complete your booking</p>
-                  <Link href={`/auth/signin?callbackUrl=/book`}>
-                    <Button>
-                      <LogIn className="h-4 w-4 mr-2" />
-                      Sign In to Book
-                    </Button>
-                  </Link>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Your Name
+                    </Label>
+                    <Input
+                      value={reservationName}
+                      onChange={(e) => setReservationName(e.target.value)}
+                      placeholder="Name for the reservation"
+                      required
+                      minLength={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Email Address
+                    </Label>
+                    <Input
+                      type="email"
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                      placeholder="your@email.com"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">Confirmation will be sent here</p>
+                  </div>
                 </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Reservation Name</Label>
-                      <Input
-                        value={reservationName}
-                        onChange={(e) => setReservationName(e.target.value)}
-                        placeholder="Your name"
-                        required
-                        minLength={2}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Number of Guests
-                      </Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max={selectedTable.seats}
-                        value={guestCount}
-                        onChange={(e) => setGuestCount(e.target.value)}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">Max {selectedTable.seats} for this table</p>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Number of Guests
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={guestCount}
+                      onChange={(e) => setGuestCount(e.target.value)}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">This table seats {selectedTable.seats}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
@@ -275,14 +322,18 @@ export default function BookPage() {
                       maxLength={500}
                     />
                   </div>
-                  <Button type="submit" className="w-full h-11" disabled={loading}>
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : null}
-                    Submit Booking Request
-                  </Button>
-                </form>
-              )}
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-11"
+                  disabled={loading || !!capacityWarning}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Submit Booking Request
+                </Button>
+              </form>
             </CardContent>
           </Card>
         )}
@@ -295,15 +346,22 @@ export default function BookPage() {
               </div>
               <h3 className="text-lg font-semibold">Booking Submitted!</h3>
               <p className="text-muted-foreground mt-2">
-                Your booking request has been received. We'll review it and send you an email confirmation shortly.
+                Your booking request has been received. We'll review it and send a confirmation to <strong className="text-foreground">{guestEmail}</strong> once approved.
               </p>
-              <div className="mt-6 flex justify-center gap-3">
-                <Button variant="outline" onClick={() => { setSubmitted(false); setSelectedTableId(null); }}>
+              <div className="mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSubmitted(false);
+                    setSelectedTableId(null);
+                    setReservationName("");
+                    setGuestEmail("");
+                    setGuestCount("2");
+                    setComment("");
+                  }}
+                >
                   Book Another Table
                 </Button>
-                <Link href="/my-bookings">
-                  <Button>View My Bookings</Button>
-                </Link>
               </div>
             </CardContent>
           </Card>

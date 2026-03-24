@@ -25,8 +25,9 @@ export async function POST(
     const updated = await updateBookingStatus(id, "approved");
 
     // Send approval email (non-blocking)
-    if (booking.user?.email) {
-      sendBookingApproved(booking.user.email, {
+    const email = booking.user?.email || booking.guestEmail;
+    if (email) {
+      sendBookingApproved(email, {
         reservationName: booking.reservationName,
         bookingDate: booking.bookingDate,
         arrivalTime: booking.arrivalTime,

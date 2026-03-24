@@ -37,11 +37,6 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sign in required to book a table" }, { status: 401 });
-    }
-
     const body = await req.json();
     const parsed = createBookingSchema.safeParse(body);
 
@@ -49,7 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { tableId, reservationName, guestCount, bookingDate, arrivalTime, departureTime, comment } = parsed.data;
+    const { tableId, reservationName, guestEmail, guestCount, bookingDate, arrivalTime, departureTime, comment } = parsed.data;
 
     // Verify table exists and has enough seats
     const [table] = await db
@@ -64,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     if (guestCount > table.seats) {
       return NextResponse.json(
-        { error: `This table has ${table.seats} seats. Please reduce your guest count or choose a larger table.` },
+        { error: `This table only has ${table.seats} seats but you need ${guestCount}. Please choose a larger table or book additional tables.` },
         { status: 400 }
       );
     }
@@ -75,12 +70,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Cannot book for a past date" }, { status: 400 });
     }
 
+    // Check if user is signed in (optional for guests)
+    const session = await auth();
+
     // Create the booking
     const booking = await createBooking({
-      userId: session.user.id,
+      userId: session?.user?.id || null,
       tableId,
       reservationName,
       guestCount,
+      guestEmail,
       bookingDate,
       arrivalTime,
       departureTime,
@@ -95,18 +94,16 @@ export async function POST(req: NextRequest) {
       tag: `booking-${booking.id}`,
     }).catch(console.error);
 
-    // Send confirmation email (non-blocking)
-    if (session.user.email) {
-      sendBookingPending(session.user.email, {
-        reservationName,
-        bookingDate,
-        arrivalTime,
-        departureTime,
-        guestCount,
-        tableNumber: table.tableNumber,
-        comment,
-      }).catch(console.error);
-    }
+    // Send confirmation email to guest (non-blocking)
+    sendBookingPending(guestEmail, {
+      reservationName,
+      bookingDate,
+      arrivalTime,
+      departureTime,
+      guestCount,
+      tableNumber: table.tableNumber,
+      comment,
+    }).catch(console.error);
 
     return NextResponse.json(booking, { status: 201 });
   } catch (error) {

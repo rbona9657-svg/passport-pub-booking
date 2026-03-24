@@ -3,6 +3,7 @@ import { z } from "zod";
 export const createBookingSchema = z.object({
   tableId: z.string().uuid(),
   reservationName: z.string().min(2, "Name must be at least 2 characters").max(100),
+  guestEmail: z.string().email("Please enter a valid email address"),
   guestCount: z.number().int().min(1, "At least 1 guest required").max(20),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   arrivalTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format"),

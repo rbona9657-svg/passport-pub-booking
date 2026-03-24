@@ -12,6 +12,7 @@ interface BookingWithDetails {
   id: string;
   reservationName: string;
   guestCount: number;
+  guestEmail: string | null;
   bookingDate: string;
   arrivalTime: string;
   departureTime: string;
@@ -20,7 +21,7 @@ interface BookingWithDetails {
   createdAt: string;
   createdByAdmin: boolean;
   table: { tableNumber: string; seats: number };
-  user: { name: string | null; email: string };
+  user: { name: string | null; email: string } | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -120,7 +121,7 @@ export default function AllBookingsPage() {
                 <div className="flex items-center gap-4">
                   <div>
                     <p className="font-medium">{booking.reservationName}</p>
-                    <p className="text-xs text-muted-foreground">{booking.user.email}</p>
+                    <p className="text-xs text-muted-foreground">{booking.user?.email || booking.guestEmail || "No email"}</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">

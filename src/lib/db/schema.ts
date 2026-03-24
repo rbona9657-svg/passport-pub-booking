@@ -173,6 +173,7 @@ export const bookings = pgTable(
     status: bookingStatusEnum("status").default("pending"),
     adminNote: text("admin_note"),
     comment: text("comment"),
+    guestEmail: varchar("guest_email", { length: 255 }),
     createdByAdmin: boolean("created_by_admin").default(false),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),

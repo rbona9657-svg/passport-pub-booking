@@ -13,6 +13,7 @@ interface BookingWithDetails {
   id: string;
   reservationName: string;
   guestCount: number;
+  guestEmail: string | null;
   bookingDate: string;
   arrivalTime: string;
   departureTime: string;
@@ -20,7 +21,7 @@ interface BookingWithDetails {
   comment: string | null;
   createdAt: string;
   table: { tableNumber: string; seats: number };
-  user: { name: string | null; email: string };
+  user: { name: string | null; email: string } | null;
 }
 
 export default function AdminDashboard() {
@@ -138,7 +139,7 @@ export default function AdminDashboard() {
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="text-base">{booking.reservationName}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-1">{booking.user.email}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{booking.user?.email || booking.guestEmail || "No email"}</p>
                     </div>
                     <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
                       Pending
