@@ -13,7 +13,6 @@ import type Konva from "konva";
 import type { PubTable, VisualElement } from "@/types";
 import TableShape from "./TableShape";
 import VisualElementShape from "./VisualElementShape";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 
 const GRID_SIZE = 20;
 const MIN_ZOOM = 0.3;
@@ -83,9 +82,13 @@ export default function FloorPlanCanvas({
         const bounds = getContentBounds(tables, visualElements);
         const contentW = bounds.maxX - bounds.minX;
         const contentH = bounds.maxY - bounds.minY;
-        const aspectRatio = contentH / contentW;
 
-        const canvasHeight = Math.min(contentW * aspectRatio * (containerWidth / contentW), window.innerHeight * 0.6);
+        // Scale to fit width, then compute height from content aspect ratio
+        const fitScale = containerWidth / contentW;
+        const fittedHeight = contentH * fitScale;
+        // Cap height: on mobile max 250px, on desktop max 400px
+        const maxH = mobile ? 250 : 400;
+        const canvasHeight = Math.min(fittedHeight, maxH);
         const finalScale = Math.min(containerWidth / contentW, canvasHeight / contentH);
         const pos = {
           x: (containerWidth - contentW * finalScale) / 2 - bounds.minX * finalScale,
@@ -125,7 +128,7 @@ export default function FloorPlanCanvas({
     return lines;
   }, [mode]);
 
-  // Zoom with scroll wheel (editor) or pinch (booking mobile)
+  // Zoom with scroll wheel (editor only)
   const handleWheel = useCallback(
     (e: KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
@@ -231,65 +234,6 @@ export default function FloorPlanCanvas({
     (el as unknown as Record<string, unknown>).__canvasControls = { zoomIn: zoomInFn, zoomOut: zoomOutFn, resetZoom: resetFit };
   }, [zoomInFn, zoomOutFn, resetFit]);
 
-  // Touch pinch-to-zoom for mobile booking mode
-  useEffect(() => {
-    if (mode !== "booking") return;
-    const stage = stageRef.current;
-    if (!stage) return;
-
-    let lastDist = 0;
-    let lastCenter = { x: 0, y: 0 };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length < 2) return;
-      e.preventDefault();
-
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
-      const dist = Math.sqrt((t2.clientX - t1.clientX) ** 2 + (t2.clientY - t1.clientY) ** 2);
-      const center = { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
-
-      if (lastDist === 0) {
-        lastDist = dist;
-        lastCenter = center;
-        return;
-      }
-
-      const scaleBy = dist / lastDist;
-      const stageBox = stage.container().getBoundingClientRect();
-      const pointer = { x: center.x - stageBox.left, y: center.y - stageBox.top };
-
-      setScale((prev) => {
-        const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev * scaleBy));
-        const mousePointTo = {
-          x: (pointer.x - position.x) / prev,
-          y: (pointer.y - position.y) / prev,
-        };
-        setPosition({
-          x: pointer.x - mousePointTo.x * newScale,
-          y: pointer.y - mousePointTo.y * newScale,
-        });
-        return newScale;
-      });
-
-      lastDist = dist;
-      lastCenter = center;
-    };
-
-    const handleTouchEnd = () => {
-      lastDist = 0;
-    };
-
-    const container = stage.container();
-    container.addEventListener("touchmove", handleTouchMove, { passive: false });
-    container.addEventListener("touchend", handleTouchEnd);
-
-    return () => {
-      container.removeEventListener("touchmove", handleTouchMove);
-      container.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [mode, position]);
-
   const isBooking = mode === "booking";
   const bgFill = isBooking ? "#1e293b" : "#fafafa";
 
@@ -308,9 +252,9 @@ export default function FloorPlanCanvas({
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={isBooking ? isMobile : true}
-        onWheel={isBooking && !isMobile ? undefined : handleWheel}
-        onDragEnd={isBooking && !isMobile ? undefined : handleDragEnd}
+        draggable={!isBooking}
+        onWheel={!isBooking ? handleWheel : undefined}
+        onDragEnd={!isBooking ? handleDragEnd : undefined}
       >
         {/* Background */}
         <Layer listening={false}>
@@ -347,33 +291,6 @@ export default function FloorPlanCanvas({
           ))}
         </Layer>
       </Stage>
-
-      {/* Zoom controls for booking mode - mobile only */}
-      {isBooking && isMobile && (
-        <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
-          <button
-            onClick={zoomInFn}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/80 text-white backdrop-blur-sm hover:bg-slate-600 active:bg-slate-500 transition-colors shadow-lg"
-            aria-label="Zoom in"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </button>
-          <button
-            onClick={zoomOutFn}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/80 text-white backdrop-blur-sm hover:bg-slate-600 active:bg-slate-500 transition-colors shadow-lg"
-            aria-label="Zoom out"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </button>
-          <button
-            onClick={resetFit}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700/80 text-white backdrop-blur-sm hover:bg-slate-600 active:bg-slate-500 transition-colors shadow-lg"
-            aria-label="Reset zoom"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* Zoom indicator - editor only */}
       {!isBooking && (
