@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { tables } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendPushToAdmins } from "@/lib/push";
-import { sendBookingPending } from "@/lib/email";
+import { sendBookingPending, sendAdminNewBooking } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   try {
@@ -94,8 +94,7 @@ export async function POST(req: NextRequest) {
       tag: `booking-${booking.id}`,
     }).catch(console.error);
 
-    // Send confirmation email to guest (non-blocking)
-    sendBookingPending(guestEmail, {
+    const emailData = {
       reservationName,
       bookingDate,
       arrivalTime,
@@ -103,7 +102,13 @@ export async function POST(req: NextRequest) {
       guestCount,
       tableNumber: table.tableNumber,
       comment,
-    }).catch(console.error);
+    };
+
+    // Send confirmation email to guest (non-blocking)
+    sendBookingPending(guestEmail, emailData).catch(console.error);
+
+    // Send notification email to admin with approve button (non-blocking)
+    sendAdminNewBooking(booking.id, emailData, guestEmail).catch(console.error);
 
     return NextResponse.json(booking, { status: 201 });
   } catch (error) {

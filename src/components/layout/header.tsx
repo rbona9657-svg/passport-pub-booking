@@ -22,6 +22,9 @@ export function Header() {
           <Link href="/book">
             <Button variant="ghost" size="sm">Book a Table</Button>
           </Link>
+          <Link href="/cancel">
+            <Button variant="ghost" size="sm">My Bookings</Button>
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -44,6 +47,9 @@ export function Header() {
         <div className="md:hidden border-t border-border/40 bg-background px-4 py-3 space-y-1">
           <Link href="/book" onClick={() => setMobileOpen(false)}>
             <Button variant="ghost" size="sm" className="w-full justify-start">Book a Table</Button>
+          </Link>
+          <Link href="/cancel" onClick={() => setMobileOpen(false)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start">My Bookings</Button>
           </Link>
         </div>
       )}

@@ -1,16 +1,6 @@
-import { createTransport } from "nodemailer";
+import { sendEmail } from "@/lib/gmail";
 
-const transporter = createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT || 465),
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-const from = process.env.EMAIL_FROM || process.env.SMTP_USER || "bookings@passportpub.hu";
+const appUrl = process.env.NEXTAUTH_URL || "https://passport-pub-booking-production.up.railway.app";
 
 interface BookingEmailData {
   reservationName: string;
@@ -53,11 +43,10 @@ function bookingDetailsBlock(data: BookingEmailData) {
 }
 
 export async function sendBookingPending(to: string, data: BookingEmailData) {
-  return transporter.sendMail({
-    from: `"Passport Pub" <${from}>`,
+  return sendEmail(
     to,
-    subject: "Booking Received - Passport Pub",
-    html: emailWrapper(`
+    "Booking Received - Passport Pub",
+    emailWrapper(`
       <div style="background: white; border-radius: 12px; padding: 32px; border: 1px solid #e2e8f0;">
         <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 8px;">Booking Received!</h2>
         <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
@@ -69,18 +58,47 @@ export async function sendBookingPending(to: string, data: BookingEmailData) {
         </p>
       </div>
     `),
-  });
+  );
+}
+
+export async function sendAdminNewBooking(bookingId: string, data: BookingEmailData, guestEmail: string) {
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+  if (adminEmails.length === 0) return;
+
+  const approveUrl = `${appUrl}/api/bookings/${bookingId}/approve?token=${process.env.ADMIN_SETUP_TOKEN}`;
+
+  return sendEmail(
+    adminEmails,
+    `New Booking: ${data.reservationName} - ${data.bookingDate} ${data.arrivalTime}`,
+    emailWrapper(`
+      <div style="background: white; border-radius: 12px; padding: 32px; border: 1px solid #e2e8f0;">
+        <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 8px;">New Booking Request</h2>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 8px;">
+          A new table reservation has been submitted and is waiting for your approval.
+        </p>
+        <p style="color: #475569; font-size: 14px; margin: 0 0 16px;">
+          Guest email: <strong>${guestEmail}</strong>
+        </p>
+        ${bookingDetailsBlock(data)}
+        <div style="text-align: center; margin-top: 24px;">
+          <a href="${approveUrl}" style="display: inline-block; background: #16a34a; color: white; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">Approve Booking</a>
+        </div>
+        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 16px;">
+          Or manage all bookings in the <a href="${appUrl}/setup" style="color: #3b4fd4;">admin panel</a>.
+        </p>
+      </div>
+    `),
+  );
 }
 
 export async function sendBookingApproved(to: string, data: BookingEmailData) {
-  return transporter.sendMail({
-    from: `"Passport Pub" <${from}>`,
+  return sendEmail(
     to,
-    subject: "Booking Confirmed! - Passport Pub",
-    html: emailWrapper(`
+    "Booking Confirmed! - Passport Pub",
+    emailWrapper(`
       <div style="background: white; border-radius: 12px; padding: 32px; border: 1px solid #e2e8f0;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <div style="display: inline-block; background: #dcfce7; border-radius: 50%; width: 56px; height: 56px; line-height: 56px; font-size: 28px;">✓</div>
+          <div style="display: inline-block; background: #dcfce7; border-radius: 50%; width: 56px; height: 56px; line-height: 56px; font-size: 28px;">&#10003;</div>
         </div>
         <h2 style="color: #16a34a; font-size: 22px; margin: 0 0 8px; text-align: center;">Booking Confirmed!</h2>
         <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 16px; text-align: center;">
@@ -92,15 +110,14 @@ export async function sendBookingApproved(to: string, data: BookingEmailData) {
         </div>
       </div>
     `),
-  });
+  );
 }
 
 export async function sendBookingRejected(to: string, data: BookingEmailData, reason: string) {
-  return transporter.sendMail({
-    from: `"Passport Pub" <${from}>`,
+  return sendEmail(
     to,
-    subject: "Booking Update - Passport Pub",
-    html: emailWrapper(`
+    "Booking Update - Passport Pub",
+    emailWrapper(`
       <div style="background: white; border-radius: 12px; padding: 32px; border: 1px solid #e2e8f0;">
         <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 8px;">Booking Update</h2>
         <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
@@ -115,5 +132,44 @@ export async function sendBookingRejected(to: string, data: BookingEmailData, re
         </p>
       </div>
     `),
-  });
+  );
+}
+
+export async function sendBookingCancelled(guestEmail: string, data: BookingEmailData) {
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+
+  // Notify admins
+  if (adminEmails.length > 0) {
+    sendEmail(
+      adminEmails,
+      `Booking Cancelled: ${data.reservationName} - ${data.bookingDate}`,
+      emailWrapper(`
+        <div style="background: white; border-radius: 12px; padding: 32px; border: 1px solid #e2e8f0;">
+          <h2 style="color: #dc2626; font-size: 20px; margin: 0 0 8px;">Booking Cancelled</h2>
+          <p style="color: #475569; font-size: 15px; margin: 0 0 16px;">
+            The following booking has been cancelled by the guest (<strong>${guestEmail}</strong>):
+          </p>
+          ${bookingDetailsBlock(data)}
+        </div>
+      `),
+    ).catch(console.error);
+  }
+
+  // Confirm cancellation to guest
+  return sendEmail(
+    guestEmail,
+    "Booking Cancelled - Passport Pub",
+    emailWrapper(`
+      <div style="background: white; border-radius: 12px; padding: 32px; border: 1px solid #e2e8f0;">
+        <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 8px;">Booking Cancelled</h2>
+        <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
+          Your reservation has been cancelled. We hope to see you another time!
+        </p>
+        ${bookingDetailsBlock(data)}
+        <div style="text-align: center; margin-top: 20px;">
+          <a href="${appUrl}/book" style="display: inline-block; background: #3b4fd4; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 15px;">Book Again</a>
+        </div>
+      </div>
+    `),
+  );
 }

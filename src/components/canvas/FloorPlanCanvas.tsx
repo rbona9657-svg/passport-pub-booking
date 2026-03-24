@@ -49,7 +49,7 @@ export default function FloorPlanCanvas({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
-  // Responsive sizing
+  // Responsive sizing + auto-center in booking mode
   useEffect(() => {
     const updateSize = () => {
       if (!containerRef.current) return;
@@ -60,12 +60,32 @@ export default function FloorPlanCanvas({
       const minH = 400;
       const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
       setStageSize({ width, height });
+
+      // In booking mode, auto-fit and center the content
+      if (mode === "booking" && tables.length > 0) {
+        const allItems = [
+          ...tables.map((t) => ({ x: t.positionX, y: t.positionY, w: t.width, h: t.height })),
+          ...visualElements.map((e) => ({ x: e.positionX, y: e.positionY, w: e.width ?? 60, h: e.height ?? 60 })),
+        ];
+        const minX = Math.min(...allItems.map((i) => i.x)) - 40;
+        const minY = Math.min(...allItems.map((i) => i.y)) - 40;
+        const maxX = Math.max(...allItems.map((i) => i.x + (i.w ?? 60))) + 40;
+        const maxY = Math.max(...allItems.map((i) => i.y + (i.h ?? 60))) + 40;
+        const contentW = maxX - minX;
+        const contentH = maxY - minY;
+        const fitScale = Math.min(width / contentW, height / contentH, 1.2);
+        setScale(fitScale);
+        setPosition({
+          x: (width - contentW * fitScale) / 2 - minX * fitScale,
+          y: (height - contentH * fitScale) / 2 - minY * fitScale,
+        });
+      }
     };
 
     updateSize();
     window.addEventListener("resize", updateSize);
     return () => window.removeEventListener("resize", updateSize);
-  }, []);
+  }, [mode, tables.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Draw grid lines
   const gridLines = useMemo(() => {
@@ -197,9 +217,9 @@ export default function FloorPlanCanvas({
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable
-        onWheel={handleWheel}
-        onDragEnd={handleDragEnd}
+        draggable={mode === "editor"}
+        onWheel={mode === "editor" ? handleWheel : undefined}
+        onDragEnd={mode === "editor" ? handleDragEnd : undefined}
       >
         {/* Grid layer */}
         <Layer listening={false}>
@@ -261,10 +281,12 @@ export default function FloorPlanCanvas({
         </Layer>
       </Stage>
 
-      {/* Zoom indicator */}
-      <div className="absolute bottom-3 right-3 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
-        {Math.round(scale * 100)}%
-      </div>
+      {/* Zoom indicator - editor only */}
+      {mode === "editor" && (
+        <div className="absolute bottom-3 right-3 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
+          {Math.round(scale * 100)}%
+        </div>
+      )}
     </div>
   );
 }
