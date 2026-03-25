@@ -33,6 +33,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
+  // Mobile routes have their own layout, skip admin chrome
+  if (pathname?.startsWith("/admin/mobile")) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
