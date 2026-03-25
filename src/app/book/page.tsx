@@ -25,6 +25,7 @@ import {
   Mail,
   User,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
 
@@ -110,6 +111,10 @@ export default function BookPage() {
   }, [floorPlanId, bookingDate, arrivalTime, departureTime]);
 
   const selectedTable = tables.find((t) => t.id === selectedTableId);
+  const maxTableCapacity = tables.length > 0 ? Math.max(...tables.map((t) => t.seats)) : 0;
+  const guestCountNum = parseInt(guestCount) || 0;
+  const needsMultipleTables = maxTableCapacity > 0 && guestCountNum > maxTableCapacity;
+  const tablesNeeded = maxTableCapacity > 0 ? Math.ceil(guestCountNum / maxTableCapacity) : 0;
 
   // Check capacity when guest count or selected table changes
   useEffect(() => {
@@ -254,6 +259,19 @@ export default function BookPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex-1 space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Guests
+                </Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={guestCount}
+                  onChange={(e) => setGuestCount(e.target.value)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -273,6 +291,33 @@ export default function BookPage() {
             <span className="h-3 w-3 rounded-full bg-blue-500" /> Selected
           </span>
         </div>
+
+        {/* Multiple Tables Suggestion */}
+        {needsMultipleTables && (
+          <Card className="mb-6 border-blue-500/40 bg-blue-500/5 animate-in slide-in-from-top-4 duration-300">
+            <CardContent className="py-5">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15">
+                    <Info className="h-5 w-5 text-blue-400" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-200">Large Party? No Problem!</h3>
+                  <p className="text-sm text-blue-300/80 mt-1">
+                    For {guestCountNum} guests, we recommend booking {tablesNeeded} tables.
+                    Our largest table seats {maxTableCapacity}. Simply book {tablesNeeded} separate tables
+                    and our staff will combine them before your arrival so your group
+                    can sit together.
+                  </p>
+                  <p className="text-xs text-blue-300/60 mt-2">
+                    Tip: Mention &quot;combined tables&quot; in the Special Requests field of each booking.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Floor Plan */}
         <div className="mb-6">
