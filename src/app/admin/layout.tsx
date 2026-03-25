@@ -12,7 +12,6 @@ import {
   CalendarDays,
   Menu,
   X,
-  ArrowLeft,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -41,15 +40,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <div className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-xl px-4 md:hidden">
+      <div className="sticky top-0 z-50 flex h-14 items-center gap-3 border-b border-border/40 bg-background/80 backdrop-blur-xl px-4 md:hidden">
         <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-        <span className="font-semibold">Admin Panel</span>
-        <Link href="/">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+        <Link href="/admin/dashboard" className="font-semibold hover:text-primary transition-colors">
+          Admin Panel
         </Link>
       </div>
 
@@ -95,10 +91,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
 
           <div className="absolute bottom-4 left-4 right-4">
-            <Link href="/">
+            <Link href="/admin/dashboard">
               <Button variant="outline" size="sm" className="w-full">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Site
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Dashboard
               </Button>
             </Link>
           </div>
