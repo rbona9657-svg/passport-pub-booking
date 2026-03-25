@@ -53,12 +53,13 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex-1 max-w-md lg:max-w-lg">
+                {/* Replace /hero-pub.svg with your own image by placing it in /public/ */}
                 <Image
                   src="/hero-pub.svg"
                   alt="Passport Pub illustration"
                   width={500}
-                  height={400}
-                  className="w-full h-auto drop-shadow-2xl"
+                  height={500}
+                  className="w-full h-auto drop-shadow-2xl animate-hero-blur"
                   priority
                 />
               </div>

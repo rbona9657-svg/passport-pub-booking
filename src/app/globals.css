@@ -137,3 +137,19 @@ input[type="date"]::-moz-calendar-picker-indicator {
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* Hero image gradual blur animation: sharp -> blurred -> sharp */
+@keyframes hero-blur-pulse {
+  0%, 100% {
+    filter: blur(0px);
+    opacity: 1;
+  }
+  50% {
+    filter: blur(4px);
+    opacity: 0.3;
+  }
+}
+
+.animate-hero-blur {
+  animation: hero-blur-pulse 4s ease-in-out infinite;
+}
