@@ -27,6 +27,7 @@ const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanva
 
 interface BookingWithDetails {
   id: string;
+  tableId: string;
   reservationName: string;
   guestCount: number;
   guestEmail: string | null;
@@ -86,7 +87,6 @@ export default function MobileBookingsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [floorTables, setFloorTables] = useState<PubTable[]>([]);
   const [floorElements, setFloorElements] = useState<VisualElement[]>([]);
-  const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const { toast } = useToast();
 
@@ -115,7 +115,6 @@ export default function MobileBookingsPage() {
       .then((res) => res.json())
       .then((data) => {
         if (data) {
-          setFloorPlanId(data.id);
           setFloorTables(data.tables || []);
           setFloorElements(data.visualElements || []);
         }
@@ -123,15 +122,21 @@ export default function MobileBookingsPage() {
       .catch(console.error);
   }, []);
 
-  // Fetch table statuses when date changes
+  // Compute table statuses from bookings (avoids midnight-crossing API issues)
   useEffect(() => {
-    if (!floorPlanId) return;
-    // Use full operating range to show all booked tables for this date
-    fetch(`/api/tables/availability?floorPlanId=${floorPlanId}&date=${date}&arrival=16:00&departure=02:00`)
-      .then((res) => res.json())
-      .then(setTableStatuses)
-      .catch(console.error);
-  }, [floorPlanId, date, bookings]);
+    const statusMap: Record<string, "available" | "pending" | "booked"> = {};
+    for (const t of floorTables) {
+      statusMap[t.id] = "available";
+    }
+    for (const b of bookings) {
+      if (b.status === "approved") {
+        statusMap[b.tableId] = "booked";
+      } else if (b.status === "pending" && statusMap[b.tableId] !== "booked") {
+        statusMap[b.tableId] = "pending";
+      }
+    }
+    setTableStatuses(statusMap);
+  }, [bookings, floorTables]);
 
   const changeDate = (offset: number) => {
     const d = new Date(date + "T12:00:00");
