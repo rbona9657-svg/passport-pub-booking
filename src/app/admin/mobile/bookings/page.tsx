@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import type { PubTable, VisualElement } from "@/types";
+
+const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanvas"), {
+  ssr: false,
+  loading: () => <div className="h-[250px] bg-muted/30 rounded-xl animate-pulse" />,
+});
 
 interface BookingWithDetails {
   id: string;
@@ -77,6 +84,10 @@ export default function MobileBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [floorTables, setFloorTables] = useState<PubTable[]>([]);
+  const [floorElements, setFloorElements] = useState<VisualElement[]>([]);
+  const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
+  const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const { toast } = useToast();
 
   const fetchBookings = useCallback(async () => {
@@ -97,6 +108,30 @@ export default function MobileBookingsPage() {
     const interval = setInterval(fetchBookings, 30000);
     return () => clearInterval(interval);
   }, [fetchBookings]);
+
+  // Fetch floor plan on mount
+  useEffect(() => {
+    fetch("/api/floor-plan")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) {
+          setFloorPlanId(data.id);
+          setFloorTables(data.tables || []);
+          setFloorElements(data.visualElements || []);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  // Fetch table statuses when date changes
+  useEffect(() => {
+    if (!floorPlanId) return;
+    // Use full operating range to show all booked tables for this date
+    fetch(`/api/tables/availability?floorPlanId=${floorPlanId}&date=${date}&arrival=16:00&departure=02:00`)
+      .then((res) => res.json())
+      .then(setTableStatuses)
+      .catch(console.error);
+  }, [floorPlanId, date, bookings]);
 
   const changeDate = (offset: number) => {
     const d = new Date(date + "T12:00:00");
@@ -138,9 +173,11 @@ export default function MobileBookingsPage() {
     }
   };
 
-  const grouped = groupByTime(bookings);
-  const pendingCount = bookings.filter((b) => b.status === "pending").length;
-  const approvedCount = bookings.filter((b) => b.status === "approved").length;
+  // Filter out cancelled and rejected bookings
+  const activeBookings = bookings.filter((b) => b.status !== "cancelled" && b.status !== "rejected");
+  const grouped = groupByTime(activeBookings);
+  const pendingCount = activeBookings.filter((b) => b.status === "pending").length;
+  const approvedCount = activeBookings.filter((b) => b.status === "approved").length;
 
   return (
     <div className="space-y-4">
@@ -185,12 +222,24 @@ export default function MobileBookingsPage() {
         </Button>
       </div>
 
+      {/* Floor plan with booked tables */}
+      {floorTables.length > 0 && (
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <FloorPlanCanvas
+            mode="booking"
+            tables={floorTables}
+            visualElements={floorElements}
+            tableStatuses={tableStatuses}
+          />
+        </div>
+      )}
+
       {/* Bookings list */}
-      {loading && bookings.length === 0 ? (
+      {loading && activeBookings.length === 0 ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : bookings.length === 0 ? (
+      ) : activeBookings.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <CalendarDays className="mx-auto h-8 w-8 mb-2 opacity-50" />
