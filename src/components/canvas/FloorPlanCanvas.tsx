@@ -19,7 +19,6 @@ const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.15;
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 800;
-const PADDING = 30;
 
 interface FloorPlanCanvasProps {
   mode: "editor" | "booking";
@@ -34,22 +33,6 @@ interface FloorPlanCanvasProps {
   ) => void;
   selectedEditorId?: string | null;
   onEditorSelect?: (id: string | null) => void;
-}
-
-function getContentBounds(tables: PubTable[], visualElements: VisualElement[]) {
-  if (tables.length === 0 && visualElements.length === 0) {
-    return { minX: 0, minY: 0, maxX: 400, maxY: 300 };
-  }
-  const allItems = [
-    ...tables.map((t) => ({ x: t.positionX, y: t.positionY, w: t.width ?? 80, h: t.height ?? 80 })),
-    ...visualElements.map((e) => ({ x: e.positionX, y: e.positionY, w: e.width ?? 60, h: e.height ?? 60 })),
-  ];
-  return {
-    minX: Math.min(...allItems.map((i) => i.x)) - PADDING,
-    minY: Math.min(...allItems.map((i) => i.y)) - PADDING,
-    maxX: Math.max(...allItems.map((i) => i.x + i.w)) + PADDING,
-    maxY: Math.max(...allItems.map((i) => i.y + i.h)) + PADDING,
-  };
 }
 
 export default function FloorPlanCanvas({
@@ -78,42 +61,25 @@ export default function FloorPlanCanvas({
   const elementsRef = useRef(visualElements);
   elementsRef.current = visualElements;
 
-  // Responsive sizing + auto-fit in booking mode
+  // Responsive sizing
   useEffect(() => {
     const updateSize = () => {
       if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const containerWidth = rect.width;
-
-      // Skip if container hasn't laid out yet
+      const containerWidth = containerRef.current.getBoundingClientRect().width;
       if (containerWidth < 50) return;
 
-      const currentTables = tablesRef.current;
-      const currentElements = elementsRef.current;
       const mobile = containerWidth < 768;
       setIsMobile(mobile);
 
-      if (mode === "booking" && currentTables.length > 0) {
-        // Include all content (tables + visual elements) for full floor plan view
-        const bounds = getContentBounds(currentTables, currentElements);
-        const contentW = bounds.maxX - bounds.minX;
-        const contentH = bounds.maxY - bounds.minY;
-
-        // Scale to fit width, allow more height so nothing is cropped
-        const fitScale = containerWidth / contentW;
-        const fittedHeight = contentH * fitScale;
-        const maxH = mobile ? 400 : 500;
-        const canvasHeight = Math.min(Math.max(fittedHeight, 200), maxH);
-        const finalScale = Math.min(containerWidth / contentW, canvasHeight / contentH);
-        const pos = {
-          x: (containerWidth - contentW * finalScale) / 2 - bounds.minX * finalScale,
-          y: (canvasHeight - contentH * finalScale) / 2 - bounds.minY * finalScale,
-        };
+      if (mode === "booking") {
+        // Simple approach: scale the fixed editor space (1200x800) to fit container
+        const fitScale = containerWidth / CANVAS_WIDTH;
+        const canvasHeight = CANVAS_HEIGHT * fitScale;
 
         setStageSize({ width: containerWidth, height: canvasHeight });
-        setScale(finalScale);
-        setPosition(pos);
-        initialFitRef.current = { scale: finalScale, position: pos };
+        setScale(fitScale);
+        setPosition({ x: 0, y: 0 });
+        initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
       } else {
         const maxH = mobile ? 500 : 700;
         const minH = 350;
@@ -124,7 +90,6 @@ export default function FloorPlanCanvas({
 
     updateSize();
 
-    // Use ResizeObserver to handle late layout (e.g. client-side navigation)
     const el = containerRef.current;
     let observer: ResizeObserver | null = null;
     if (el && typeof ResizeObserver !== "undefined") {
