@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import CanvasToolbar from "@/components/canvas/CanvasToolbar";
 import TableConfigDialog from "@/components/canvas/TableConfigDialog";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, Crop } from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
+import type { ViewportCrop } from "@/components/canvas/FloorPlanCanvas";
+import CropSelector from "@/components/canvas/CropSelector";
 
 const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanvas"), {
   ssr: false,
@@ -30,6 +32,11 @@ export default function FloorPlanEditor() {
   const [copiedSize, setCopiedSize] = useState<{ width: number; height: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cropping, setCropping] = useState(false);
+  const [savedCrop, setSavedCrop] = useState<ViewportCrop | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [stageScale, setStageScale] = useState(1);
+  const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -40,25 +47,46 @@ export default function FloorPlanEditor() {
           setName(data.name || "Main Floor");
           setTables(data.tables || []);
           setElements(data.visualElements || []);
+          if (data.viewportConfig?.crop) {
+            setSavedCrop(data.viewportConfig.crop);
+          }
         }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSave = async () => {
+  // Start crop mode — user selects visible area before saving
+  const handleStartSave = () => {
+    setCropping(true);
+  };
+
+  const handleCropConfirm = async (crop: ViewportCrop) => {
+    setCropping(false);
+    setSavedCrop(crop);
+    await doSave(crop);
+  };
+
+  const handleCropCancel = () => {
+    setCropping(false);
+  };
+
+  const doSave = async (crop: ViewportCrop | null) => {
     setSaving(true);
     try {
       const res = await fetch("/api/floor-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, tables, visualElements: elements }),
+        body: JSON.stringify({ name, tables, visualElements: elements, viewportCrop: crop }),
       });
 
       if (res.ok) {
         const data = await res.json();
         setTables(data.tables || []);
         setElements(data.visualElements || []);
+        if (data.viewportConfig?.crop) {
+          setSavedCrop(data.viewportConfig.crop);
+        }
         toast({ title: "Floor plan saved!" });
       } else {
         toast({ title: "Error", description: "Failed to save", variant: "destructive" });
@@ -211,18 +239,18 @@ export default function FloorPlanEditor() {
               className="w-40"
             />
           </div>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-            Save
+          <Button onClick={handleStartSave} disabled={saving || cropping}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Crop className="h-4 w-4 mr-2" />}
+            {saving ? "Saving..." : "Crop & Save"}
           </Button>
         </div>
       </div>
 
-      <div className="relative">
+      <div ref={canvasContainerRef} className="relative">
         <CanvasToolbar
           onAddTable={handleAddTable}
           onAddElement={handleAddElement}
-          onSave={handleSave}
+          onSave={handleStartSave}
           onZoomIn={() => {
             const el = document.querySelector("[data-canvas]") as HTMLElement | null;
             const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => void> | undefined;
@@ -254,6 +282,23 @@ export default function FloorPlanEditor() {
           selectedEditorId={selectedEditorId}
           onEditorSelect={setSelectedEditorId}
         />
+
+        {cropping && (() => {
+          const el = document.querySelector("[data-canvas]") as HTMLElement | null;
+          const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => unknown> | undefined;
+          const sc = controls?.getScale ? (controls.getScale() as number) : 1;
+          const pos = controls?.getPosition ? (controls.getPosition() as { x: number; y: number }) : { x: 0, y: 0 };
+          return (
+            <CropSelector
+              canvasContainerRef={canvasContainerRef}
+              stageScale={sc}
+              stagePosition={pos}
+              initialCrop={savedCrop}
+              onConfirm={handleCropConfirm}
+              onCancel={handleCropCancel}
+            />
+          );
+        })()}
       </div>
 
       {/* Size info for selected item */}

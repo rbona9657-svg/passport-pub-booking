@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -27,8 +27,11 @@ import {
   Tag,
   Copy,
   ClipboardPaste,
+  Crop,
 } from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
+import type { ViewportCrop } from "@/components/canvas/FloorPlanCanvas";
+import CropSelector from "@/components/canvas/CropSelector";
 
 const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanvas"), {
   ssr: false,
@@ -46,6 +49,9 @@ export default function MobileFloorPlanPage() {
   const [copiedSize, setCopiedSize] = useState<{ width: number; height: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cropping, setCropping] = useState(false);
+  const [savedCrop, setSavedCrop] = useState<ViewportCrop | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -56,25 +62,45 @@ export default function MobileFloorPlanPage() {
           setName(data.name || "Main Floor");
           setTables(data.tables || []);
           setElements(data.visualElements || []);
+          if (data.viewportConfig?.crop) {
+            setSavedCrop(data.viewportConfig.crop);
+          }
         }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSave = async () => {
+  const handleStartSave = () => {
+    setCropping(true);
+  };
+
+  const handleCropConfirm = async (crop: ViewportCrop) => {
+    setCropping(false);
+    setSavedCrop(crop);
+    await doSave(crop);
+  };
+
+  const handleCropCancel = () => {
+    setCropping(false);
+  };
+
+  const doSave = async (crop: ViewportCrop | null) => {
     setSaving(true);
     try {
       const res = await fetch("/api/floor-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, tables, visualElements: elements }),
+        body: JSON.stringify({ name, tables, visualElements: elements, viewportCrop: crop }),
       });
 
       if (res.ok) {
         const data = await res.json();
         setTables(data.tables || []);
         setElements(data.visualElements || []);
+        if (data.viewportConfig?.crop) {
+          setSavedCrop(data.viewportConfig.crop);
+        }
         toast({ title: "Floor plan saved!" });
       } else {
         toast({ title: "Error", description: "Failed to save", variant: "destructive" });
@@ -218,14 +244,14 @@ export default function MobileFloorPlanPage() {
           <h1 className="text-lg font-bold tracking-tight">Floor Plan</h1>
           <p className="text-xs text-muted-foreground">Drag to move. Use handles to resize.</p>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={saving} className="h-9">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-          Save
+        <Button size="sm" onClick={handleStartSave} disabled={saving || cropping} className="h-9">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Crop className="h-4 w-4 mr-1" />}
+          {saving ? "Saving..." : "Crop & Save"}
         </Button>
       </div>
 
       {/* Canvas */}
-      <div className="relative">
+      <div ref={canvasContainerRef} className="relative">
         <FloorPlanCanvas
           mode="editor"
           tables={tables}
@@ -235,6 +261,23 @@ export default function MobileFloorPlanPage() {
           selectedEditorId={selectedEditorId}
           onEditorSelect={setSelectedEditorId}
         />
+
+        {cropping && (() => {
+          const el = document.querySelector("[data-canvas]") as HTMLElement | null;
+          const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => unknown> | undefined;
+          const sc = controls?.getScale ? (controls.getScale() as number) : 1;
+          const pos = controls?.getPosition ? (controls.getPosition() as { x: number; y: number }) : { x: 0, y: 0 };
+          return (
+            <CropSelector
+              canvasContainerRef={canvasContainerRef}
+              stageScale={sc}
+              stagePosition={pos}
+              initialCrop={savedCrop}
+              onConfirm={handleCropConfirm}
+              onCancel={handleCropCancel}
+            />
+          );
+        })()}
       </div>
 
       {/* Selection toolbar - appears when an item is selected */}

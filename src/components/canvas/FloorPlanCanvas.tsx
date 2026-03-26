@@ -19,7 +19,13 @@ const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.15;
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 800;
-const PADDING = 30;
+
+export interface ViewportCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 interface FloorPlanCanvasProps {
   mode: "editor" | "booking";
@@ -34,22 +40,7 @@ interface FloorPlanCanvasProps {
   ) => void;
   selectedEditorId?: string | null;
   onEditorSelect?: (id: string | null) => void;
-}
-
-function getContentBounds(tables: PubTable[], visualElements: VisualElement[]) {
-  if (tables.length === 0 && visualElements.length === 0) {
-    return { minX: 0, minY: 0, maxX: 400, maxY: 300 };
-  }
-  const allItems = [
-    ...tables.map((t) => ({ x: t.positionX, y: t.positionY, w: t.width ?? 80, h: t.height ?? 80 })),
-    ...visualElements.map((e) => ({ x: e.positionX, y: e.positionY, w: e.width ?? 60, h: e.height ?? 60 })),
-  ];
-  return {
-    minX: Math.min(...allItems.map((i) => i.x)) - PADDING,
-    minY: Math.min(...allItems.map((i) => i.y)) - PADDING,
-    maxX: Math.max(...allItems.map((i) => i.x + i.w)) + PADDING,
-    maxY: Math.max(...allItems.map((i) => i.y + i.h)) + PADDING,
-  };
+  viewportCrop?: ViewportCrop | null;
 }
 
 export default function FloorPlanCanvas({
@@ -62,6 +53,7 @@ export default function FloorPlanCanvas({
   onLayoutChange,
   selectedEditorId,
   onEditorSelect,
+  viewportCrop,
 }: FloorPlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -72,62 +64,67 @@ export default function FloorPlanCanvas({
   const [isMobile, setIsMobile] = useState(false);
   const initialFitRef = useRef<{ scale: number; position: { x: number; y: number } } | null>(null);
 
-  // Use refs so the ResizeObserver callback always has latest data
+  // Keep viewportCrop in a ref so the sizing callback always reads the latest value
+  const viewportCropRef = useRef(viewportCrop);
+  viewportCropRef.current = viewportCrop;
+
+  // Use refs so callbacks always have latest data
   const tablesRef = useRef(tables);
   tablesRef.current = tables;
   const elementsRef = useRef(visualElements);
   elementsRef.current = visualElements;
 
-  // Responsive sizing + auto-fit in booking mode
-  useEffect(() => {
-    const updateSize = () => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const containerWidth = rect.width;
+  // Stable sizing function
+  const updateSize = useCallback(() => {
+    if (!containerRef.current) return;
+    const containerWidth = containerRef.current.getBoundingClientRect().width;
+    if (containerWidth < 50) return;
 
-      // Skip if container hasn't laid out yet
-      if (containerWidth < 50) return;
+    const mobile = containerWidth < 768;
+    setIsMobile(mobile);
 
-      const currentTables = tablesRef.current;
-      const currentElements = elementsRef.current;
-      const mobile = containerWidth < 768;
-      setIsMobile(mobile);
-
-      if (mode === "booking" && currentTables.length > 0) {
-        // Include all content (tables + visual elements) for full floor plan view
-        const bounds = getContentBounds(currentTables, currentElements);
-        const contentW = bounds.maxX - bounds.minX;
-        const contentH = bounds.maxY - bounds.minY;
-
-        // Scale to fit width, allow more height so nothing is cropped
-        const fitScale = containerWidth / contentW;
-        const fittedHeight = contentH * fitScale;
-        const maxH = mobile ? 400 : 500;
-        const canvasHeight = Math.min(Math.max(fittedHeight, 200), maxH);
-        const finalScale = Math.min(containerWidth / contentW, canvasHeight / contentH);
-        const pos = {
-          x: (containerWidth - contentW * finalScale) / 2 - bounds.minX * finalScale,
-          y: (canvasHeight - contentH * finalScale) / 2 - bounds.minY * finalScale,
-        };
+    if (mode === "booking") {
+      // Use saved viewport crop if available — one simple division, no edge cases
+      const crop = viewportCropRef.current;
+      if (crop && crop.width > 0 && crop.height > 0) {
+        const fitScale = containerWidth / crop.width;
+        const canvasHeight = crop.height * fitScale;
+        const pos = { x: -crop.x * fitScale, y: -crop.y * fitScale };
 
         setStageSize({ width: containerWidth, height: canvasHeight });
-        setScale(finalScale);
+        setScale(fitScale);
         setPosition(pos);
-        initialFitRef.current = { scale: finalScale, position: pos };
+        initialFitRef.current = { scale: fitScale, position: pos };
       } else {
-        const maxH = mobile ? 500 : 700;
-        const minH = 350;
-        const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
-        setStageSize({ width: containerWidth, height });
+        // Fallback: use fixed editor canvas width
+        const fitScale = containerWidth / CANVAS_WIDTH;
+        const canvasHeight = CANVAS_HEIGHT * fitScale;
+
+        setStageSize({ width: containerWidth, height: canvasHeight });
+        setScale(fitScale);
+        setPosition({ x: 0, y: 0 });
+        initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
       }
-    };
+    } else {
+      const maxH = mobile ? 500 : 700;
+      const minH = 350;
+      const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
+      setStageSize({ width: containerWidth, height });
+    }
+  }, [mode]);
 
+  // Recalculate when tables or visual elements change
+  useEffect(() => {
     updateSize();
+  }, [tables, visualElements, updateSize]);
 
-    // Use ResizeObserver to handle late layout (e.g. client-side navigation)
+  // ResizeObserver for container width changes
+  useEffect(() => {
     const el = containerRef.current;
+    if (!el) return;
+
     let observer: ResizeObserver | null = null;
-    if (el && typeof ResizeObserver !== "undefined") {
+    if (typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver(updateSize);
       observer.observe(el);
     }
@@ -137,7 +134,7 @@ export default function FloorPlanCanvas({
       window.removeEventListener("resize", updateSize);
       observer?.disconnect();
     };
-  }, [mode, tables.length, visualElements.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [updateSize]);
 
   // Attach Transformer to selected editor node
   useEffect(() => {
@@ -347,7 +344,7 @@ export default function FloorPlanCanvas({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    (el as unknown as Record<string, unknown>).__canvasControls = { zoomIn: zoomInFn, zoomOut: zoomOutFn, resetZoom: resetFit };
+    (el as unknown as Record<string, unknown>).__canvasControls = { zoomIn: zoomInFn, zoomOut: zoomOutFn, resetZoom: resetFit, getScale: () => scale, getPosition: () => position };
     return () => {
       if (el) (el as unknown as Record<string, unknown>).__canvasControls = undefined;
     };

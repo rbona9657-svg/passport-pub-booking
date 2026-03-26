@@ -23,6 +23,7 @@ export default function QuickBookPage() {
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
+  const [viewportCrop, setViewportCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [reservationName, setReservationName] = useState("");
@@ -62,6 +63,9 @@ export default function QuickBookPage() {
           setFloorPlanId(data.id);
           setTables(data.tables || []);
           setElements(data.visualElements || []);
+          if (data.viewportConfig?.crop) {
+            setViewportCrop(data.viewportConfig.crop);
+          }
         }
       })
       .catch(console.error);
@@ -245,6 +249,7 @@ export default function QuickBookPage() {
               tableStatuses={tableStatuses}
               selectedTableId={selectedTableId}
               onTableSelect={setSelectedTableId}
+              viewportCrop={viewportCrop}
             />
           </div>
         </div>

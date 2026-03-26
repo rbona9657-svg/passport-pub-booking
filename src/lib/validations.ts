@@ -85,6 +85,12 @@ export const saveFloorPlanSchema = z.object({
       icon: z.string().max(50).optional().nullable(),
     })
   ),
+  viewportCrop: z.object({
+    x: z.number(),
+    y: z.number(),
+    width: z.number().positive(),
+    height: z.number().positive(),
+  }).optional().nullable(),
 });
 
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;

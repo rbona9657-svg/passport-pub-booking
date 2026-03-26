@@ -35,6 +35,7 @@ export default function MobileVoiceBookPage() {
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
+  const [viewportCrop, setViewportCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -64,6 +65,9 @@ export default function MobileVoiceBookPage() {
           setFloorPlanId(data.id);
           setTables(data.tables || []);
           setElements(data.visualElements || []);
+          if (data.viewportConfig?.crop) {
+            setViewportCrop(data.viewportConfig.crop);
+          }
         }
       })
       .catch(console.error);
@@ -354,6 +358,7 @@ export default function MobileVoiceBookPage() {
                     tableStatuses={tableStatuses}
                     selectedTableId={editTableId}
                     onTableSelect={setEditTableId}
+                    viewportCrop={viewportCrop}
                   />
                 )}
               </div>
