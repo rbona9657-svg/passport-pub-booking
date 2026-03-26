@@ -139,7 +139,7 @@ export default function MobileQuickBookPage() {
   };
 
   return (
-    <div className="space-y-3 pb-4">
+    <div className="space-y-3 pb-4 overflow-hidden">
       <h1 className="text-lg font-bold tracking-tight">Quick Book</h1>
 
       {/* Floor plan first - tap to select table */}
@@ -173,7 +173,7 @@ export default function MobileQuickBookPage() {
             type="date"
             value={bookingDate}
             onChange={(e) => setBookingDate(e.target.value)}
-            className="h-10 text-sm"
+            className="h-10 text-sm w-full min-w-0 max-w-full"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
