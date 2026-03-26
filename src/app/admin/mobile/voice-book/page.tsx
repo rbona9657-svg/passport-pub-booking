@@ -48,7 +48,7 @@ export default function MobileVoiceBookPage() {
     startListening,
     stopListening,
     reset: resetVoice,
-  } = useVoiceRecognition({ onResult: handleVoiceResult });
+  } = useVoiceRecognition({ lang: "hu-HU", onResult: handleVoiceResult });
 
   useEffect(() => {
     fetch("/api/floor-plan")
@@ -189,7 +189,7 @@ export default function MobileVoiceBookPage() {
       <div>
         <h1 className="text-lg font-bold tracking-tight">Voice Booking</h1>
         <p className="text-xs text-muted-foreground">
-          Press the microphone and say the booking details
+          Nyomja meg a mikrofont és mondja el a foglalás adatait
         </p>
       </div>
 
@@ -210,7 +210,7 @@ export default function MobileVoiceBookPage() {
           )}
         </button>
         <p className="mt-3 text-sm text-muted-foreground">
-          {state === "listening" ? "Listening... tap to stop" : "Tap to start recording"}
+          {state === "listening" ? "Hallgatom... koppintson a leállításhoz" : "Koppintson a felvételhez"}
         </p>
       </div>
 
