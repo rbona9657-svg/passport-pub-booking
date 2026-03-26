@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarDays, Clock, Users, Check, X, MessageSquare, Loader2, Mic } from "lucide-react";
+import { CalendarDays, Clock, Users, Check, X, MessageSquare, Loader2, Mic, CalendarPlus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import Link from "next/link";
 
@@ -112,11 +112,17 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div>
+      <div className="flex gap-3">
         <Link href="/admin/mobile/voice-book">
           <Button size="lg" className="gap-2">
             <Mic className="h-5 w-5" />
             Voice Booking
+          </Button>
+        </Link>
+        <Link href="/admin/mobile/quick-book">
+          <Button size="lg" variant="outline" className="gap-2">
+            <CalendarPlus className="h-5 w-5" />
+            Quick Booking
           </Button>
         </Link>
       </div>
