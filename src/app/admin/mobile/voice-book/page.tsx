@@ -160,6 +160,14 @@ export default function MobileVoiceBookPage() {
       if (res.ok) {
         toast({ title: "Booking created & approved!" });
         setSubmitted(true);
+
+        // Refresh table availability so floor plan shows the new booking
+        if (floorPlanId) {
+          const statusRes = await fetch(
+            `/api/tables/availability?floorPlanId=${floorPlanId}&date=${editDate}&arrival=${editArrival}&departure=${editDeparture}`
+          );
+          if (statusRes.ok) setTableStatuses(await statusRes.json());
+        }
       } else {
         const data = await res.json();
         const errMsg = typeof data.error === "string" ? data.error : "Validation failed. Please check all fields.";
