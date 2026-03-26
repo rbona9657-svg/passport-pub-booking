@@ -72,14 +72,36 @@ export default function FloorPlanCanvas({
       setIsMobile(mobile);
 
       if (mode === "booking") {
-        // Simple approach: scale the fixed editor space (1200x800) to fit container
-        const fitScale = containerWidth / CANVAS_WIDTH;
-        const canvasHeight = CANVAS_HEIGHT * fitScale;
+        const currentTables = tablesRef.current;
+        const currentElements = elementsRef.current;
+        const allItems = [
+          ...currentTables.map((t) => ({ x: t.positionX, y: t.positionY, w: t.width ?? 80, h: t.height ?? 80 })),
+          ...currentElements.map((e) => ({ x: e.positionX, y: e.positionY, w: e.width ?? 60, h: e.height ?? 60 })),
+        ];
+
+        if (allItems.length === 0) {
+          setStageSize({ width: containerWidth, height: 300 });
+          return;
+        }
+
+        const PAD = 20;
+        const minX = Math.min(...allItems.map((i) => i.x)) - PAD;
+        const minY = Math.min(...allItems.map((i) => i.y)) - PAD;
+        const maxX = Math.max(...allItems.map((i) => i.x + i.w)) + PAD;
+        const maxY = Math.max(...allItems.map((i) => i.y + i.h)) + PAD;
+        const contentW = maxX - minX;
+        const contentH = maxY - minY;
+
+        // Scale to fit width, height follows proportionally
+        const fitScale = containerWidth / contentW;
+        const canvasHeight = contentH * fitScale;
+
+        const pos = { x: -minX * fitScale, y: -minY * fitScale };
 
         setStageSize({ width: containerWidth, height: canvasHeight });
         setScale(fitScale);
-        setPosition({ x: 0, y: 0 });
-        initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
+        setPosition(pos);
+        initialFitRef.current = { scale: fitScale, position: pos };
       } else {
         const maxH = mobile ? 500 : 700;
         const minH = 350;
