@@ -72,6 +72,12 @@ export default function FloorPlanCanvas({
   const [isMobile, setIsMobile] = useState(false);
   const initialFitRef = useRef<{ scale: number; position: { x: number; y: number } } | null>(null);
 
+  // Use refs so the ResizeObserver callback always has latest data
+  const tablesRef = useRef(tables);
+  tablesRef.current = tables;
+  const elementsRef = useRef(visualElements);
+  elementsRef.current = visualElements;
+
   // Responsive sizing + auto-fit in booking mode
   useEffect(() => {
     const updateSize = () => {
@@ -82,11 +88,13 @@ export default function FloorPlanCanvas({
       // Skip if container hasn't laid out yet
       if (containerWidth < 50) return;
 
+      const currentTables = tablesRef.current;
+      const currentElements = elementsRef.current;
       const mobile = containerWidth < 768;
       setIsMobile(mobile);
 
-      if (mode === "booking" && tables.length > 0) {
-        const bounds = getContentBounds(tables, visualElements);
+      if (mode === "booking" && currentTables.length > 0) {
+        const bounds = getContentBounds(currentTables, currentElements);
         const contentW = bounds.maxX - bounds.minX;
         const contentH = bounds.maxY - bounds.minY;
 
@@ -128,7 +136,7 @@ export default function FloorPlanCanvas({
       window.removeEventListener("resize", updateSize);
       observer?.disconnect();
     };
-  }, [mode, tables.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode, tables.length, visualElements.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Attach Transformer to selected editor node
   useEffect(() => {
@@ -339,6 +347,9 @@ export default function FloorPlanCanvas({
     const el = containerRef.current;
     if (!el) return;
     (el as unknown as Record<string, unknown>).__canvasControls = { zoomIn: zoomInFn, zoomOut: zoomOutFn, resetZoom: resetFit };
+    return () => {
+      if (el) (el as unknown as Record<string, unknown>).__canvasControls = undefined;
+    };
   }, [zoomInFn, zoomOutFn, resetFit]);
 
   const isBooking = mode === "booking";
@@ -348,6 +359,7 @@ export default function FloorPlanCanvas({
   return (
     <div
       ref={containerRef}
+      data-canvas=""
       className={`relative w-full overflow-hidden rounded-xl ${
         isBooking ? "bg-slate-800 border border-slate-700/50" : "border bg-white"
       }`}
