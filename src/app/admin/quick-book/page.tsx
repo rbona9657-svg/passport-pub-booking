@@ -111,6 +111,7 @@ export default function QuickBookPage() {
           arrivalTime,
           departureTime,
           comment: comment || null,
+          adminAutoApprove: true,
         }),
       });
 

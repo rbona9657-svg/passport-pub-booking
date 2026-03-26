@@ -109,6 +109,7 @@ export default function MobileQuickBookPage() {
           arrivalTime,
           departureTime,
           comment: comment || null,
+          adminAutoApprove: true,
         }),
       });
 

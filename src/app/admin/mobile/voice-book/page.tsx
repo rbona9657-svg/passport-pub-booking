@@ -153,6 +153,7 @@ export default function MobileVoiceBookPage() {
           bookingDate: editDate,
           arrivalTime: editArrival,
           departureTime: editDeparture,
+          adminAutoApprove: true,
         }),
       });
 

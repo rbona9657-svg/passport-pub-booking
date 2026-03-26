@@ -55,6 +55,9 @@ export async function POST(req: NextRequest) {
     const { tableId, reservationName, guestCount, bookingDate, arrivalTime, departureTime, comment } = parsed.data;
     const guestEmail = parsed.data.guestEmail || null;
 
+    // Only auto-approve if explicitly requested from admin booking pages
+    const adminAutoApprove = isAdmin && body.adminAutoApprove === true;
+
     // Verify table exists and has enough seats
     const [table] = await db
       .select()
@@ -90,8 +93,8 @@ export async function POST(req: NextRequest) {
       arrivalTime,
       departureTime,
       comment,
-      createdByAdmin: isAdmin,
-      status: isAdmin ? "approved" : "pending",
+      createdByAdmin: adminAutoApprove,
+      status: adminAutoApprove ? "approved" : "pending",
     });
 
     // Send push notification to admins (non-blocking)
