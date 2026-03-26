@@ -46,8 +46,11 @@ export function parseBookingFromText(transcript: string): ParsedBooking {
     const match = transcript.match(pattern);
     if (match) {
       result.name = match[1].trim().replace(/\s+/g, " ");
-      // Capitalize each word
-      result.name = result.name.replace(/\b\w/g, (c) => c.toUpperCase());
+      // Capitalize first letter of each word (space-separated to avoid accented char issues)
+      result.name = result.name
+        .split(" ")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
       break;
     }
   }

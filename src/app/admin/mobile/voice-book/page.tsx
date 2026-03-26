@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +13,6 @@ import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
 import { parseBookingFromText, type ParsedBooking } from "@/lib/voice-parser";
 import {
   Mic,
-  MicOff,
   Square,
   Loader2,
   Check,
@@ -21,15 +21,21 @@ import {
   Users,
   CalendarDays,
   Clock,
-  MapPin,
   AlertCircle,
 } from "lucide-react";
-import type { PubTable } from "@/types";
+import type { PubTable, VisualElement } from "@/types";
+
+const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanvas"), {
+  ssr: false,
+  loading: () => <div className="h-[250px] bg-muted/30 rounded-xl animate-pulse" />,
+});
 
 export default function MobileVoiceBookPage() {
   const [parsed, setParsed] = useState<ParsedBooking>({});
   const [tables, setTables] = useState<PubTable[]>([]);
+  const [elements, setElements] = useState<VisualElement[]>([]);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
+  const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const { toast } = useToast();
@@ -57,19 +63,11 @@ export default function MobileVoiceBookPage() {
         if (data) {
           setFloorPlanId(data.id);
           setTables(data.tables || []);
+          setElements(data.visualElements || []);
         }
       })
       .catch(console.error);
   }, []);
-
-  // Find matching table by number
-  const matchedTable = parsed.tableNumber
-    ? tables.find(
-        (t) =>
-          t.tableNumber.toLowerCase() === parsed.tableNumber!.toLowerCase() ||
-          t.tableNumber.toLowerCase() === `t${parsed.tableNumber!.toLowerCase()}`
-      )
-    : null;
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -88,8 +86,18 @@ export default function MobileVoiceBookPage() {
     if (parsed.date) setEditDate(parsed.date);
     if (parsed.arrivalTime) setEditArrival(parsed.arrivalTime);
     if (parsed.departureTime) setEditDeparture(parsed.departureTime);
-    if (matchedTable) setEditTableId(matchedTable.id);
-  }, [parsed, matchedTable]);
+  }, [parsed]);
+
+  // Fetch table availability when date/time changes
+  useEffect(() => {
+    if (!floorPlanId) return;
+    fetch(`/api/tables/availability?floorPlanId=${floorPlanId}&date=${editDate}&arrival=${editArrival}&departure=${editDeparture}`)
+      .then((res) => res.json())
+      .then(setTableStatuses)
+      .catch(console.error);
+  }, [floorPlanId, editDate, editArrival, editDeparture]);
+
+  const selectedTable = tables.find((t) => t.id === editTableId);
 
   const handleToggleRecording = () => {
     if (state === "listening") {
@@ -323,24 +331,26 @@ export default function MobileVoiceBookPage() {
                 </div>
               </div>
 
-              {/* Table selection */}
+              {/* Floor plan - tap to select table */}
               <div className="space-y-1">
                 <Label className="text-xs flex items-center gap-1">
-                  <MapPin className="h-3 w-3" /> Table
-                  {parsed.tableNumber && <Badge variant="secondary" className="text-[9px] h-4 ml-1">voice</Badge>}
+                  Tap a green table to select
+                  {selectedTable && (
+                    <span className="text-xs font-medium text-primary ml-auto">
+                      Table {selectedTable.tableNumber} ({selectedTable.seats} seats)
+                    </span>
+                  )}
                 </Label>
-                <select
-                  value={editTableId || ""}
-                  onChange={(e) => setEditTableId(e.target.value || null)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">Select a table...</option>
-                  {tables.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      Table {t.tableNumber} ({t.seats} seats)
-                    </option>
-                  ))}
-                </select>
+                {tables.length > 0 && (
+                  <FloorPlanCanvas
+                    mode="booking"
+                    tables={tables}
+                    visualElements={elements}
+                    tableStatuses={tableStatuses}
+                    selectedTableId={editTableId}
+                    onTableSelect={setEditTableId}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>
@@ -356,7 +366,9 @@ export default function MobileVoiceBookPage() {
             ) : (
               <Check className="h-4 w-4 mr-2" />
             )}
-            Confirm & Approve Booking
+            {selectedTable
+              ? `Confirm Table ${selectedTable.tableNumber}`
+              : "Select a table first"}
           </Button>
         </div>
       )}
