@@ -7,6 +7,7 @@ import { tables } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendPushToAdmins } from "@/lib/push";
 import { sendBookingPending, sendAdminNewBooking } from "@/lib/email";
+import { getLocalToday } from "@/lib/constants";
 
 export async function GET(req: NextRequest) {
   try {
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Reject past dates
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalToday();
     if (bookingDate < today) {
       return NextResponse.json({ error: "Cannot book for a past date" }, { status: 400 });
     }

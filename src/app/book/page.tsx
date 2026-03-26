@@ -45,7 +45,10 @@ export default function BookPage() {
   const [viewportCrop, setViewportCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split("T")[0]);
+  const [bookingDate, setBookingDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [arrivalTime, setArrivalTime] = useState("19:00");
   const [departureTime, setDepartureTime] = useState("21:00");
   const [reservationName, setReservationName] = useState("");

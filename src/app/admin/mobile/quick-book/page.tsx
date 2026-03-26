@@ -29,7 +29,10 @@ export default function MobileQuickBookPage() {
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [reservationName, setReservationName] = useState("");
   const [guestCount, setGuestCount] = useState("2");
-  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split("T")[0]);
+  const [bookingDate, setBookingDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [arrivalTime, setArrivalTime] = useState("19:00");
   const [departureTime, setDepartureTime] = useState("21:00");
   const [comment, setComment] = useState("");
