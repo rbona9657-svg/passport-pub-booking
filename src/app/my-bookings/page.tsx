@@ -136,17 +136,17 @@ export default function MyBookingsPage() {
             <Badge variant="outline" className={status.class}>{status.label}</Badge>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-sm">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5" />
+              <CalendarDays className="h-3.5 w-3.5 shrink-0" />
               {booking.bookingDate}
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
+              <Clock className="h-3.5 w-3.5 shrink-0" />
               {booking.arrivalTime}-{booking.departureTime}
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Users className="h-3.5 w-3.5" />
+              <Users className="h-3.5 w-3.5 shrink-0" />
               {booking.guestCount} guests
             </div>
           </div>

@@ -64,7 +64,7 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl pt-[env(safe-area-inset-top,0px)]">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
             PP
@@ -103,7 +103,7 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
       </main>
 
       {/* Bottom tab navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background/95 backdrop-blur-xl safe-area-pb">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom,0px)]">
         <div className="flex h-16 items-center justify-around">
           {tabs.map((tab) => {
             const Icon = tab.icon;

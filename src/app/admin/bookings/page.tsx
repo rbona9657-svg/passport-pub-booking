@@ -78,29 +78,31 @@ export default function AllBookingsPage() {
             className="pl-9"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="w-44"
-        />
-        {dateFilter && (
-          <Button variant="ghost" size="sm" onClick={() => setDateFilter("")}>
-            Clear
-          </Button>
-        )}
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="w-full sm:w-44"
+          />
+          {dateFilter && (
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setDateFilter("")}>
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -118,13 +120,11 @@ export default function AllBookingsPage() {
           {filtered.map((booking) => (
             <Card key={booking.id}>
               <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-4">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <p className="font-medium">{booking.reservationName}</p>
-                    <p className="text-xs text-muted-foreground">{booking.user?.email || booking.guestEmail || "No email"}</p>
-                  </div>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{booking.reservationName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{booking.user?.email || booking.guestEmail || "No email"}</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <CalendarDays className="h-3.5 w-3.5" />
                     {booking.bookingDate}
