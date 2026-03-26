@@ -108,10 +108,6 @@ export default function QuickBookPage() {
       });
 
       if (res.ok) {
-        // Auto-approve since it's admin-created
-        const booking = await res.json();
-        await fetch(`/api/bookings/${booking.id}/approve`, { method: "POST" });
-
         toast({ title: "Booking Created & Approved!" });
         setReservationName("");
         setGuestCount("2");
@@ -125,7 +121,8 @@ export default function QuickBookPage() {
         if (statusRes.ok) setTableStatuses(await statusRes.json());
       } else {
         const data = await res.json();
-        toast({ title: "Error", description: data.error || "Failed to create booking", variant: "destructive" });
+        const errMsg = typeof data.error === "string" ? data.error : "Validation failed. Please check all fields.";
+        toast({ title: "Error", description: errMsg, variant: "destructive" });
       }
     } catch {
       toast({ title: "Error", description: "Failed to create booking", variant: "destructive" });

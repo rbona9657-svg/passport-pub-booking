@@ -153,13 +153,12 @@ export default function MobileVoiceBookPage() {
       });
 
       if (res.ok) {
-        const booking = await res.json();
-        await fetch(`/api/bookings/${booking.id}/approve`, { method: "POST" });
         toast({ title: "Booking created & approved!" });
         setSubmitted(true);
       } else {
         const data = await res.json();
-        toast({ title: "Error", description: data.error || "Failed to create", variant: "destructive" });
+        const errMsg = typeof data.error === "string" ? data.error : "Validation failed. Please check all fields.";
+        toast({ title: "Error", description: errMsg, variant: "destructive" });
       }
     } catch {
       toast({ title: "Error", description: "Failed to create booking", variant: "destructive" });
@@ -372,7 +371,7 @@ export default function MobileVoiceBookPage() {
               <Check className="h-4 w-4 mr-2" />
             )}
             {selectedTable
-              ? `Confirm Table ${selectedTable.tableNumber}`
+              ? `Save & Approve — Table ${selectedTable.tableNumber}`
               : "Select a table first"}
           </Button>
         </div>

@@ -89,6 +89,8 @@ export async function POST(req: NextRequest) {
       arrivalTime,
       departureTime,
       comment,
+      createdByAdmin: isAdmin,
+      status: isAdmin ? "approved" : "pending",
     });
 
     // Send push notification to admins (non-blocking)

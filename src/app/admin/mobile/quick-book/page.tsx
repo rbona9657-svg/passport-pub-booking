@@ -106,9 +106,6 @@ export default function MobileQuickBookPage() {
       });
 
       if (res.ok) {
-        const booking = await res.json();
-        await fetch(`/api/bookings/${booking.id}/approve`, { method: "POST" });
-
         toast({ title: "Booking created & approved!" });
         setReservationName("");
         setGuestCount("2");
@@ -123,7 +120,8 @@ export default function MobileQuickBookPage() {
         }
       } else {
         const data = await res.json();
-        toast({ title: "Error", description: data.error || "Failed to create booking", variant: "destructive" });
+        const errMsg = typeof data.error === "string" ? data.error : "Validation failed. Please check all fields.";
+        toast({ title: "Error", description: errMsg, variant: "destructive" });
       }
     } catch {
       toast({ title: "Error", description: "Failed to create booking", variant: "destructive" });
@@ -245,7 +243,7 @@ export default function MobileQuickBookPage() {
           <Check className="h-4 w-4 mr-2" />
         )}
         {selectedTable
-          ? `Book Table ${selectedTable.tableNumber}`
+          ? `Save & Approve — Table ${selectedTable.tableNumber}`
           : "Select a table first"
         }
       </Button>
