@@ -94,17 +94,16 @@ export default function FloorPlanCanvas({
       setIsMobile(mobile);
 
       if (mode === "booking" && currentTables.length > 0) {
-        // In booking mode, fit to tables only so distant visual elements
-        // don't shrink tables to invisible dots
-        const bounds = getContentBounds(currentTables, []);
+        // Include all content (tables + visual elements) for full floor plan view
+        const bounds = getContentBounds(currentTables, currentElements);
         const contentW = bounds.maxX - bounds.minX;
         const contentH = bounds.maxY - bounds.minY;
 
-        // Scale to fit width, then cap height for compact display
+        // Scale to fit width, allow more height so nothing is cropped
         const fitScale = containerWidth / contentW;
         const fittedHeight = contentH * fitScale;
-        const maxH = mobile ? 300 : 400;
-        const canvasHeight = Math.min(fittedHeight, maxH);
+        const maxH = mobile ? 400 : 500;
+        const canvasHeight = Math.min(Math.max(fittedHeight, 200), maxH);
         const finalScale = Math.min(containerWidth / contentW, canvasHeight / contentH);
         const pos = {
           x: (containerWidth - contentW * finalScale) / 2 - bounds.minX * finalScale,
