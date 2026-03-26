@@ -96,14 +96,54 @@ export default function FloorPlanCanvas({
         setPosition(pos);
         initialFitRef.current = { scale: fitScale, position: pos };
       } else {
-        // Fallback: use fixed editor canvas width
-        const fitScale = containerWidth / CANVAS_WIDTH;
-        const canvasHeight = CANVAS_HEIGHT * fitScale;
+        // Fallback: compute bounding box of all content
+        const allItems = [
+          ...tablesRef.current.map((t) => ({
+            x: t.positionX,
+            y: t.positionY,
+            w: t.width ?? 80,
+            h: t.height ?? 80,
+          })),
+          ...elementsRef.current.map((e) => ({
+            x: e.positionX,
+            y: e.positionY,
+            w: e.width ?? 60,
+            h: e.height ?? 60,
+          })),
+        ];
 
-        setStageSize({ width: containerWidth, height: canvasHeight });
-        setScale(fitScale);
-        setPosition({ x: 0, y: 0 });
-        initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
+        if (allItems.length === 0) {
+          // No content — just show the empty canvas
+          const fitScale = containerWidth / CANVAS_WIDTH;
+          setStageSize({ width: containerWidth, height: CANVAS_HEIGHT * fitScale });
+          setScale(fitScale);
+          setPosition({ x: 0, y: 0 });
+          initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
+        } else {
+          const PADDING = 40;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const item of allItems) {
+            minX = Math.min(minX, item.x);
+            minY = Math.min(minY, item.y);
+            maxX = Math.max(maxX, item.x + item.w);
+            maxY = Math.max(maxY, item.y + item.h);
+          }
+          minX -= PADDING;
+          minY -= PADDING;
+          maxX += PADDING;
+          maxY += PADDING;
+
+          const contentW = maxX - minX;
+          const contentH = maxY - minY;
+          const fitScale = containerWidth / contentW;
+          const canvasHeight = contentH * fitScale;
+          const pos = { x: -minX * fitScale, y: -minY * fitScale };
+
+          setStageSize({ width: containerWidth, height: canvasHeight });
+          setScale(fitScale);
+          setPosition(pos);
+          initialFitRef.current = { scale: fitScale, position: pos };
+        }
       }
     } else {
       const maxH = mobile ? 500 : 700;
