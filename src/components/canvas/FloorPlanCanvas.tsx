@@ -83,19 +83,19 @@ export default function FloorPlanCanvas({
         return;
       }
 
+      // Use fixed editor canvas width for scale — this is ALWAYS stable.
+      // Content bounds are only used to trim dead space, never for scale.
+      const fitScale = containerWidth / CANVAS_WIDTH;
+
+      // Clamp content bounds within the editor canvas to ignore outliers
       const PAD = 20;
-      const minX = Math.min(...allItems.map((i) => i.x)) - PAD;
-      const minY = Math.min(...allItems.map((i) => i.y)) - PAD;
-      const maxX = Math.max(...allItems.map((i) => i.x + i.w)) + PAD;
-      const maxY = Math.max(...allItems.map((i) => i.y + i.h)) + PAD;
-      const contentW = maxX - minX;
-      const contentH = maxY - minY;
+      const minY = Math.max(0, Math.min(...allItems.map((i) => i.y)) - PAD);
+      const maxY = Math.min(CANVAS_HEIGHT, Math.max(...allItems.map((i) => i.y + i.h)) + PAD);
+      const canvasHeight = (maxY - minY) * fitScale;
 
-      const fitScale = containerWidth / contentW;
-      const canvasHeight = contentH * fitScale;
-      const pos = { x: -minX * fitScale, y: -minY * fitScale };
+      const pos = { x: 0, y: -minY * fitScale };
 
-      setStageSize({ width: containerWidth, height: canvasHeight });
+      setStageSize({ width: containerWidth, height: Math.max(canvasHeight, 150) });
       setScale(fitScale);
       setPosition(pos);
       initialFitRef.current = { scale: fitScale, position: pos };
