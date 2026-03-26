@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, Clock, Users, Search, Loader2 } from "lucide-react";
+import { CalendarDays, Clock, Users, Search, Loader2, Ban } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface BookingWithDetails {
   id: string;
@@ -37,6 +38,23 @@ export default function AllBookingsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleCancel = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/bookings/${id}/admin-cancel`, { method: "POST" });
+      if (res.ok) {
+        toast({ title: "Booking cancelled" });
+        fetchBookings();
+      }
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
@@ -143,6 +161,22 @@ export default function AllBookingsPage() {
                   </Badge>
                   {booking.createdByAdmin && (
                     <Badge variant="secondary" className="text-xs">Admin</Badge>
+                  )}
+                  {(booking.status === "approved" || booking.status === "pending") && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 text-xs"
+                      onClick={() => handleCancel(booking.id)}
+                      disabled={actionLoading === booking.id}
+                    >
+                      {actionLoading === booking.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      ) : (
+                        <Ban className="h-3 w-3 mr-1" />
+                      )}
+                      Cancel
+                    </Button>
                   )}
                 </div>
               </CardContent>

@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Ban,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import type { PubTable, VisualElement } from "@/types";
@@ -169,6 +170,21 @@ export default function MobileBookingsPage() {
       });
       if (res.ok) {
         toast({ title: "Booking rejected" });
+        fetchBookings();
+      }
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/bookings/${id}/admin-cancel`, { method: "POST" });
+      if (res.ok) {
+        toast({ title: "Booking cancelled" });
         fetchBookings();
       }
     } catch {
@@ -333,6 +349,25 @@ export default function MobileBookingsPage() {
                                 disabled={actionLoading === booking.id}
                               >
                                 <X className="h-4 w-4 mr-1" /> Reject
+                              </Button>
+                            </div>
+                          )}
+
+                          {booking.status === "approved" && (
+                            <div className="pt-1">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="w-full h-9"
+                                onClick={(e) => { e.stopPropagation(); handleCancel(booking.id); }}
+                                disabled={actionLoading === booking.id}
+                              >
+                                {actionLoading === booking.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                ) : (
+                                  <Ban className="h-4 w-4 mr-1" />
+                                )}
+                                Cancel Booking
                               </Button>
                             </div>
                           )}
