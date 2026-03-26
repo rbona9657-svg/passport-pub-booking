@@ -79,6 +79,9 @@ export default function FloorPlanCanvas({
       const rect = containerRef.current.getBoundingClientRect();
       const containerWidth = rect.width;
 
+      // Skip if container hasn't laid out yet
+      if (containerWidth < 50) return;
+
       const mobile = containerWidth < 768;
       setIsMobile(mobile);
 
@@ -90,7 +93,7 @@ export default function FloorPlanCanvas({
         // Scale to fit width, then cap height for compact display
         const fitScale = containerWidth / contentW;
         const fittedHeight = contentH * fitScale;
-        const maxH = mobile ? 250 : 400;
+        const maxH = mobile ? 300 : 400;
         const canvasHeight = Math.min(fittedHeight, maxH);
         const finalScale = Math.min(containerWidth / contentW, canvasHeight / contentH);
         const pos = {
@@ -111,8 +114,20 @@ export default function FloorPlanCanvas({
     };
 
     updateSize();
+
+    // Use ResizeObserver to handle late layout (e.g. client-side navigation)
+    const el = containerRef.current;
+    let observer: ResizeObserver | null = null;
+    if (el && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(updateSize);
+      observer.observe(el);
+    }
+
     window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
+    return () => {
+      window.removeEventListener("resize", updateSize);
+      observer?.disconnect();
+    };
   }, [mode, tables.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Attach Transformer to selected editor node
