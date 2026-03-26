@@ -94,7 +94,9 @@ export default function FloorPlanCanvas({
       setIsMobile(mobile);
 
       if (mode === "booking" && currentTables.length > 0) {
-        const bounds = getContentBounds(currentTables, currentElements);
+        // In booking mode, fit to tables only so distant visual elements
+        // don't shrink tables to invisible dots
+        const bounds = getContentBounds(currentTables, []);
         const contentW = bounds.maxX - bounds.minX;
         const contentH = bounds.maxY - bounds.minY;
 
