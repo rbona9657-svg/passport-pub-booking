@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarDays, Clock, Users, Check, X, MessageSquare, Loader2 } from "lucide-react";
+import { CalendarDays, Clock, Users, Check, X, MessageSquare, Loader2, Mic, CalendarPlus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import Link from "next/link";
 
 interface BookingWithDetails {
   id: string;
@@ -108,6 +109,22 @@ export default function AdminDashboard() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Manage incoming booking requests</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="flex gap-3">
+        <Link href="/admin/mobile/voice-book">
+          <Button size="lg" className="gap-2">
+            <Mic className="h-5 w-5" />
+            Voice Booking
+          </Button>
+        </Link>
+        <Link href="/admin/mobile/quick-book">
+          <Button size="lg" variant="outline" className="gap-2">
+            <CalendarPlus className="h-5 w-5" />
+            Quick Booking
+          </Button>
+        </Link>
       </div>
 
       {/* Stats */}
