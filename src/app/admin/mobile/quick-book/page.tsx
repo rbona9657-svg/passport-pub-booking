@@ -165,15 +165,15 @@ export default function MobileQuickBookPage() {
         />
       </div>
 
-      {/* Date & Time - date on its own row, times side by side */}
+      {/* Date & Time */}
       <div className="space-y-2">
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <Label className="text-[11px] text-muted-foreground">Date</Label>
-          <Input
+          <input
             type="date"
             value={bookingDate}
             onChange={(e) => setBookingDate(e.target.value)}
-            className="h-10 text-sm w-full min-w-0 max-w-full"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring box-border"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">

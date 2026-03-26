@@ -36,7 +36,10 @@ export default function AllBookingsPage() {
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [search, setSearch] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const { toast } = useToast();
@@ -96,9 +99,9 @@ export default function AllBookingsPage() {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-40">
+            <SelectTrigger className="h-10 w-full sm:w-40">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -113,7 +116,7 @@ export default function AllBookingsPage() {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="w-full sm:w-44"
+            className="h-10 w-full sm:w-44"
           />
           {dateFilter && (
             <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setDateFilter("")}>
