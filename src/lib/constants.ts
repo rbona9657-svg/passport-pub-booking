@@ -17,3 +17,11 @@ export const MAX_BOOKING_DURATION = 6; // hours
 export const MAX_SEATS_PER_TABLE = 20;
 export const PUB_NAME = "Passport Pub";
 export const PUB_URL = "https://www.passportpub.hu/?lang=hu#";
+
+/** Returns today's date as YYYY-MM-DD in local timezone (not UTC). */
+export function getLocalToday(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

@@ -78,6 +78,7 @@ export async function saveFloorPlan(data: {
     label?: string | null;
     icon?: string | null;
   }>;
+  viewportCrop?: { x: number; y: number; width: number; height: number } | null;
 }) {
   // Check if there's an active floor plan
   const existing = await db
@@ -90,10 +91,14 @@ export async function saveFloorPlan(data: {
 
   if (existing.length) {
     floorPlanId = existing[0].id;
-    // Update the floor plan name
+    // Update the floor plan name and viewport config
     await db
       .update(floorPlans)
-      .set({ name: data.name, updatedAt: new Date() })
+      .set({
+        name: data.name,
+        viewportConfig: data.viewportCrop ? { crop: data.viewportCrop } : null,
+        updatedAt: new Date(),
+      })
       .where(eq(floorPlans.id, floorPlanId));
 
     // Get existing table IDs from the database
@@ -162,7 +167,11 @@ export async function saveFloorPlan(data: {
     // Create new floor plan
     const [newPlan] = await db
       .insert(floorPlans)
-      .values({ name: data.name, isActive: true })
+      .values({
+        name: data.name,
+        isActive: true,
+        viewportConfig: data.viewportCrop ? { crop: data.viewportCrop } : null,
+      })
       .returning();
     floorPlanId = newPlan.id;
 

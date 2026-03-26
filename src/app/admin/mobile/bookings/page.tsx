@@ -88,6 +88,7 @@ export default function MobileBookingsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [floorTables, setFloorTables] = useState<PubTable[]>([]);
   const [floorElements, setFloorElements] = useState<VisualElement[]>([]);
+  const [viewportCrop, setViewportCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const { toast } = useToast();
 
@@ -118,6 +119,9 @@ export default function MobileBookingsPage() {
         if (data) {
           setFloorTables(data.tables || []);
           setFloorElements(data.visualElements || []);
+          if (data.viewportConfig?.crop) {
+            setViewportCrop(data.viewportConfig.crop);
+          }
         }
       })
       .catch(console.error);
@@ -251,6 +255,7 @@ export default function MobileBookingsPage() {
             tables={floorTables}
             visualElements={floorElements}
             tableStatuses={tableStatuses}
+            viewportCrop={viewportCrop}
           />
         </div>
       )}

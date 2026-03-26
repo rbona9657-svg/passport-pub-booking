@@ -23,11 +23,15 @@ export default function QuickBookPage() {
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
+  const [viewportCrop, setViewportCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [reservationName, setReservationName] = useState("");
   const [guestCount, setGuestCount] = useState("2");
-  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split("T")[0]);
+  const [bookingDate, setBookingDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [arrivalTime, setArrivalTime] = useState("19:00");
   const [departureTime, setDepartureTime] = useState("21:00");
   const [comment, setComment] = useState("");
@@ -62,6 +66,9 @@ export default function QuickBookPage() {
           setFloorPlanId(data.id);
           setTables(data.tables || []);
           setElements(data.visualElements || []);
+          if (data.viewportConfig?.crop) {
+            setViewportCrop(data.viewportConfig.crop);
+          }
         }
       })
       .catch(console.error);
@@ -175,7 +182,7 @@ export default function QuickBookPage() {
                   <Input
                     type="date"
                     value={bookingDate}
-                    min={new Date().toISOString().split("T")[0]}
+                    min={bookingDate}
                     onChange={(e) => setBookingDate(e.target.value)}
                     className="min-w-0"
                   />
@@ -242,6 +249,7 @@ export default function QuickBookPage() {
               tableStatuses={tableStatuses}
               selectedTableId={selectedTableId}
               onTableSelect={setSelectedTableId}
+              viewportCrop={viewportCrop}
             />
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { bookings, tables, users } from "@/lib/db/schema";
 import { eq, and, or, sql, inArray, gte, lte, desc } from "drizzle-orm";
+import { getLocalToday } from "@/lib/constants";
 
 export async function getTableStatuses(
   floorPlanId: string,
@@ -220,7 +221,7 @@ export async function getPendingBookingsCount() {
 }
 
 export async function getTodayBookingsCount() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalToday();
   const result = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(bookings)

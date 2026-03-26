@@ -42,9 +42,13 @@ export default function BookPage() {
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
+  const [viewportCrop, setViewportCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split("T")[0]);
+  const [bookingDate, setBookingDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [arrivalTime, setArrivalTime] = useState("19:00");
   const [departureTime, setDepartureTime] = useState("21:00");
   const [reservationName, setReservationName] = useState("");
@@ -85,6 +89,9 @@ export default function BookPage() {
           setFloorPlanId(data.id);
           setTables(data.tables || []);
           setElements(data.visualElements || []);
+          if (data.viewportConfig?.crop) {
+            setViewportCrop(data.viewportConfig.crop);
+          }
         }
       })
       .catch(console.error);
@@ -333,6 +340,7 @@ export default function BookPage() {
             tableStatuses={tableStatuses}
             selectedTableId={selectedTableId}
             onTableSelect={handleTableSelect}
+            viewportCrop={viewportCrop}
           />
         </div>
 

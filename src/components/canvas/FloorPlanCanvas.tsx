@@ -20,6 +20,13 @@ const ZOOM_STEP = 0.15;
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 800;
 
+export interface ViewportCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface FloorPlanCanvasProps {
   mode: "editor" | "booking";
   tables: PubTable[];
@@ -33,6 +40,7 @@ interface FloorPlanCanvasProps {
   ) => void;
   selectedEditorId?: string | null;
   onEditorSelect?: (id: string | null) => void;
+  viewportCrop?: ViewportCrop | null;
 }
 
 export default function FloorPlanCanvas({
@@ -45,6 +53,7 @@ export default function FloorPlanCanvas({
   onLayoutChange,
   selectedEditorId,
   onEditorSelect,
+  viewportCrop,
 }: FloorPlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
@@ -54,6 +63,10 @@ export default function FloorPlanCanvas({
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
   const initialFitRef = useRef<{ scale: number; position: { x: number; y: number } } | null>(null);
+
+  // Keep viewportCrop in a ref so the sizing callback always reads the latest value
+  const viewportCropRef = useRef(viewportCrop);
+  viewportCropRef.current = viewportCrop;
 
   // Use refs so callbacks always have latest data
   const tablesRef = useRef(tables);
@@ -71,34 +84,27 @@ export default function FloorPlanCanvas({
     setIsMobile(mobile);
 
     if (mode === "booking") {
-      const currentTables = tablesRef.current;
-      const currentElements = elementsRef.current;
-      const allItems = [
-        ...currentTables.map((t) => ({ x: t.positionX, y: t.positionY, w: t.width ?? 80, h: t.height ?? 80 })),
-        ...currentElements.map((e) => ({ x: e.positionX, y: e.positionY, w: e.width ?? 60, h: e.height ?? 60 })),
-      ];
+      // Use saved viewport crop if available — one simple division, no edge cases
+      const crop = viewportCropRef.current;
+      if (crop && crop.width > 0 && crop.height > 0) {
+        const fitScale = containerWidth / crop.width;
+        const canvasHeight = crop.height * fitScale;
+        const pos = { x: -crop.x * fitScale, y: -crop.y * fitScale };
 
-      if (allItems.length === 0) {
-        setStageSize({ width: containerWidth, height: 300 });
-        return;
+        setStageSize({ width: containerWidth, height: canvasHeight });
+        setScale(fitScale);
+        setPosition(pos);
+        initialFitRef.current = { scale: fitScale, position: pos };
+      } else {
+        // Fallback: use fixed editor canvas width
+        const fitScale = containerWidth / CANVAS_WIDTH;
+        const canvasHeight = CANVAS_HEIGHT * fitScale;
+
+        setStageSize({ width: containerWidth, height: canvasHeight });
+        setScale(fitScale);
+        setPosition({ x: 0, y: 0 });
+        initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
       }
-
-      // Use fixed editor canvas width for scale — this is ALWAYS stable.
-      // Content bounds are only used to trim dead space, never for scale.
-      const fitScale = containerWidth / CANVAS_WIDTH;
-
-      // Clamp content bounds within the editor canvas to ignore outliers
-      const PAD = 20;
-      const minY = Math.max(0, Math.min(...allItems.map((i) => i.y)) - PAD);
-      const maxY = Math.min(CANVAS_HEIGHT, Math.max(...allItems.map((i) => i.y + i.h)) + PAD);
-      const canvasHeight = (maxY - minY) * fitScale;
-
-      const pos = { x: 0, y: -minY * fitScale };
-
-      setStageSize({ width: containerWidth, height: Math.max(canvasHeight, 150) });
-      setScale(fitScale);
-      setPosition(pos);
-      initialFitRef.current = { scale: fitScale, position: pos };
     } else {
       const maxH = mobile ? 500 : 700;
       const minH = 350;
@@ -338,7 +344,7 @@ export default function FloorPlanCanvas({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    (el as unknown as Record<string, unknown>).__canvasControls = { zoomIn: zoomInFn, zoomOut: zoomOutFn, resetZoom: resetFit };
+    (el as unknown as Record<string, unknown>).__canvasControls = { zoomIn: zoomInFn, zoomOut: zoomOutFn, resetZoom: resetFit, getScale: () => scale, getPosition: () => position };
     return () => {
       if (el) (el as unknown as Record<string, unknown>).__canvasControls = undefined;
     };
