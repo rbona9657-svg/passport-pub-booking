@@ -153,8 +153,8 @@ export default function MobileQuickBookPage() {
         />
       </div>
 
-      {/* Date & Time - compact row */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Date & Time - date on its own row, times side by side */}
+      <div className="space-y-2">
         <div className="space-y-1">
           <Label className="text-[11px] text-muted-foreground">Date</Label>
           <Input
@@ -164,29 +164,31 @@ export default function MobileQuickBookPage() {
             className="h-10 text-sm"
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">From</Label>
-          <select
-            value={arrivalTime}
-            onChange={(e) => handleArrivalChange(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {PUB_HOURS.map((h) => (
-              <option key={h} value={h}>{h}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">To</Label>
-          <select
-            value={departureTime}
-            onChange={(e) => handleDepartureChange(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {PUB_HOURS.map((h) => (
-              <option key={h} value={h}>{h}</option>
-            ))}
-          </select>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">From</Label>
+            <select
+              value={arrivalTime}
+              onChange={(e) => handleArrivalChange(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {PUB_HOURS.map((h) => (
+                <option key={h} value={h}>{h}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">To</Label>
+            <select
+              value={departureTime}
+              onChange={(e) => handleDepartureChange(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {PUB_HOURS.map((h) => (
+                <option key={h} value={h}>{h}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

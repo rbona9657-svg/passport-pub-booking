@@ -13,6 +13,7 @@ import {
   LogOut,
   Bell,
   BellRing,
+  LayoutDashboard,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
@@ -66,10 +67,22 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
       {/* Header */}
       <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
-            PP
-          </div>
-          <span className="text-sm font-semibold">Admin</span>
+          <Link
+            href="/admin/dashboard"
+            className="flex items-center gap-2 hover:text-primary transition-colors"
+          >
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
+              PP
+            </div>
+            <span className="text-sm font-semibold">Admin</span>
+          </Link>
+          <Link
+            href="/admin/dashboard"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-2"
+            title="Dashboard"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+          </Link>
         </div>
         <div className="flex items-center gap-3">
           {permission !== "granted" || !isSubscribed ? (
