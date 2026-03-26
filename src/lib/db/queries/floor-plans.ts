@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { floorPlans, tables, visualElements } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray, notInArray } from "drizzle-orm";
 
 export async function getActiveFloorPlan() {
   const plan = await db
@@ -96,26 +96,67 @@ export async function saveFloorPlan(data: {
       .set({ name: data.name, updatedAt: new Date() })
       .where(eq(floorPlans.id, floorPlanId));
 
-    // Delete old tables and elements that aren't in the new data
-    const existingTableIds = data.tables
-      .filter((t) => t.id)
-      .map((t) => t.id!);
-    const existingElementIds = data.visualElements
-      .filter((e) => e.id)
-      .map((e) => e.id!);
+    // Get existing table IDs from the database
+    const dbTables = await db
+      .select({ id: tables.id })
+      .from(tables)
+      .where(eq(tables.floorPlanId, floorPlanId));
+    const dbTableIds = new Set(dbTables.map((t) => t.id));
 
-    // Delete tables not in update (only those without bookings)
-    await db.delete(tables).where(
-      and(
-        eq(tables.floorPlanId, floorPlanId),
-        existingTableIds.length > 0
-          ? undefined // We'll handle per-table deletion below
-          : undefined
-      )
-    );
+    // Separate into tables to update (exist in DB) vs insert (new)
+    const tablesToUpdate = data.tables.filter((t) => t.id && dbTableIds.has(t.id));
+    const tablesToInsert = data.tables.filter((t) => !t.id || !dbTableIds.has(t.id));
+    const keepTableIds = tablesToUpdate.map((t) => t.id!);
 
-    // Simpler approach: delete all and re-insert
-    await db.delete(tables).where(eq(tables.floorPlanId, floorPlanId));
+    // Delete only tables that were removed from the layout
+    // This cascades to their bookings, which is intentional when a table is removed
+    if (keepTableIds.length > 0) {
+      await db.delete(tables).where(
+        and(
+          eq(tables.floorPlanId, floorPlanId),
+          notInArray(tables.id, keepTableIds)
+        )
+      );
+    } else {
+      // All tables removed
+      await db.delete(tables).where(eq(tables.floorPlanId, floorPlanId));
+    }
+
+    // Update existing tables in place (preserves IDs and bookings)
+    for (const t of tablesToUpdate) {
+      await db
+        .update(tables)
+        .set({
+          tableNumber: t.tableNumber,
+          seats: t.seats,
+          positionX: t.positionX,
+          positionY: t.positionY,
+          width: t.width,
+          height: t.height,
+          rotation: t.rotation,
+          shape: t.shape,
+        })
+        .where(eq(tables.id, t.id!));
+    }
+
+    // Insert new tables (without client-generated IDs so DB assigns proper ones)
+    if (tablesToInsert.length > 0) {
+      await db.insert(tables).values(
+        tablesToInsert.map((t) => ({
+          floorPlanId,
+          tableNumber: t.tableNumber,
+          seats: t.seats,
+          positionX: t.positionX,
+          positionY: t.positionY,
+          width: t.width,
+          height: t.height,
+          rotation: t.rotation,
+          shape: t.shape,
+        }))
+      );
+    }
+
+    // Visual elements don't have bookings, safe to delete and re-insert
     await db.delete(visualElements).where(eq(visualElements.floorPlanId, floorPlanId));
   } else {
     // Create new floor plan
@@ -124,23 +165,23 @@ export async function saveFloorPlan(data: {
       .values({ name: data.name, isActive: true })
       .returning();
     floorPlanId = newPlan.id;
-  }
 
-  // Insert tables
-  if (data.tables.length > 0) {
-    await db.insert(tables).values(
-      data.tables.map((t) => ({
-        floorPlanId,
-        tableNumber: t.tableNumber,
-        seats: t.seats,
-        positionX: t.positionX,
-        positionY: t.positionY,
-        width: t.width,
-        height: t.height,
-        rotation: t.rotation,
-        shape: t.shape,
-      }))
-    );
+    // Insert all tables as new
+    if (data.tables.length > 0) {
+      await db.insert(tables).values(
+        data.tables.map((t) => ({
+          floorPlanId,
+          tableNumber: t.tableNumber,
+          seats: t.seats,
+          positionX: t.positionX,
+          positionY: t.positionY,
+          width: t.width,
+          height: t.height,
+          rotation: t.rotation,
+          shape: t.shape,
+        }))
+      );
+    }
   }
 
   // Insert visual elements

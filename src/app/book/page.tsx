@@ -100,11 +100,16 @@ export default function BookPage() {
     fetch(
       `/api/tables/availability?floorPlanId=${floorPlanId}&date=${bookingDate}&arrival=${arrivalTime}&departure=${departureTime}`
     )
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Availability API error: ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
-        setTableStatuses(data);
-        if (selectedTableRef.current && data[selectedTableRef.current] === "booked") {
-          setSelectedTableId(null);
+        if (data && !data.error) {
+          setTableStatuses(data);
+          if (selectedTableRef.current && data[selectedTableRef.current] === "booked") {
+            setSelectedTableId(null);
+          }
         }
       })
       .catch(console.error);

@@ -72,8 +72,13 @@ export default function QuickBookPage() {
     fetch(
       `/api/tables/availability?floorPlanId=${floorPlanId}&date=${bookingDate}&arrival=${arrivalTime}&departure=${departureTime}`
     )
-      .then((res) => res.json())
-      .then(setTableStatuses)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Availability API error: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (data && !data.error) setTableStatuses(data);
+      })
       .catch(console.error);
   }, [floorPlanId, bookingDate, arrivalTime, departureTime]);
 

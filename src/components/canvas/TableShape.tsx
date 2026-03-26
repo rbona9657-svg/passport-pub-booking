@@ -57,13 +57,15 @@ export default function TableShape({
   let stroke: string;
   let strokeWidth: number;
 
+  const effectiveStatus = status || (isBooking ? "available" : undefined);
+
   if (isBooking && isSelected) {
     fill = SELECTED_COLOR;
     stroke = SELECTED_GLOW;
     strokeWidth = 4;
-  } else if (isBooking && status) {
-    fill = STATUS_FILLS[status] || STATUS_COLORS[status];
-    stroke = STATUS_COLORS[status];
+  } else if (isBooking && effectiveStatus) {
+    fill = STATUS_FILLS[effectiveStatus] || STATUS_COLORS[effectiveStatus];
+    stroke = STATUS_COLORS[effectiveStatus];
     strokeWidth = 2;
   } else if (isEditor && isSelected) {
     fill = "#dbeafe";
@@ -75,7 +77,7 @@ export default function TableShape({
     strokeWidth = 1.5;
   }
 
-  const isClickable = isBooking ? status !== "booked" : true;
+  const isClickable = isBooking ? effectiveStatus !== "booked" : true;
 
   const handleDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
