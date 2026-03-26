@@ -119,7 +119,9 @@ export function parseBookingFromText(transcript: string): ParsedBooking {
     if (month !== undefined && day >= 1 && day <= 31) {
       const d = new Date(today.getFullYear(), month, day);
       // If the date has passed this year, use next year
-      if (d < today) {
+      // Compare date-only (ignore time of day)
+      const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      if (d < todayDate) {
         d.setFullYear(d.getFullYear() + 1);
       }
       result.date = formatDate(d);
