@@ -205,7 +205,7 @@ export default function MobileVoiceBookPage() {
       <div className="flex flex-col items-center py-4">
         <button
           onClick={handleToggleRecording}
-          className={`flex h-24 w-24 items-center justify-center rounded-full transition-all shadow-lg ${
+          className={`flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full transition-all shadow-lg ${
             state === "listening"
               ? "bg-red-500 animate-pulse shadow-red-500/30"
               : "bg-primary hover:bg-primary/90 shadow-primary/30"

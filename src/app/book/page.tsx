@@ -277,7 +277,7 @@ export default function BookPage() {
         </Card>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center gap-4 mb-4 text-sm">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4 text-xs sm:text-sm">
           <span className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-green-500" /> Available
           </span>

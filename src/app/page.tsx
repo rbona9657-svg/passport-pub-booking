@@ -11,12 +11,12 @@ export default function HomePage() {
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
           <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:py-32">
-            <div className="flex flex-col lg:flex-row items-center gap-12">
+            <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
               <div className="flex-1 text-center lg:text-left">
                 <div className="mb-6 inline-flex items-center rounded-full border border-border/60 bg-muted/50 px-4 py-1.5 text-sm text-muted-foreground">
                   Book your spot today
                 </div>
-                <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
+                <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
                   <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                     Passport
                   </span>
@@ -70,7 +70,7 @@ export default function HomePage() {
         {/* Features */}
         <section className="border-t border-border/40 bg-muted/30">
           <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-            <div className="grid gap-8 sm:grid-cols-3">
+            <div className="grid gap-4 sm:gap-8 sm:grid-cols-3">
               <div className="rounded-2xl border border-border/40 bg-card p-8">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                   <Image src="/favicon.svg" alt="" width={28} height={28} />

@@ -204,7 +204,7 @@ export default function MobileBookingsPage() {
     <div className="space-y-4">
       {/* Date navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="icon" onClick={() => changeDate(-1)} className="h-9 w-9">
+        <Button variant="ghost" size="icon" onClick={() => changeDate(-1)} className="h-11 w-11">
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <div className="text-center">
@@ -225,13 +225,13 @@ export default function MobileBookingsPage() {
             {date !== today && date} {pendingCount > 0 && `\u00B7 ${pendingCount} pending`}
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => changeDate(1)} className="h-9 w-9">
+        <Button variant="ghost" size="icon" onClick={() => changeDate(1)} className="h-11 w-11">
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
 
       {/* Summary badges */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
           {approvedCount} confirmed
         </Badge>

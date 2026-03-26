@@ -112,15 +112,15 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <Link href="/admin/mobile/voice-book">
-          <Button size="lg" className="gap-2">
+          <Button size="lg" className="gap-2 w-full sm:w-auto">
             <Mic className="h-5 w-5" />
             Voice Booking
           </Button>
         </Link>
         <Link href="/admin/mobile/quick-book">
-          <Button size="lg" variant="outline" className="gap-2">
+          <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto">
             <CalendarPlus className="h-5 w-5" />
             Quick Booking
           </Button>
@@ -164,8 +164,8 @@ export default function AdminDashboard() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-base">{booking.reservationName}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-1">{booking.guestEmail || booking.user?.email || "No email"}</p>
+                      <CardTitle className="text-base truncate">{booking.reservationName}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">{booking.guestEmail || booking.user?.email || "No email"}</p>
                     </div>
                     <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
                       Pending
