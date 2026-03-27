@@ -1,10 +1,6 @@
 // Service Worker for Passport Pub PWA
-const CACHE_NAME = "passport-pub-v2";
+const CACHE_NAME = "passport-pub-v3";
 const APP_SHELL = [
-  "/admin/dashboard",
-  "/admin/mobile/quick-book",
-  "/admin/mobile/bookings",
-  "/admin/mobile/floor-plan",
   "/icon-192.png",
   "/icon-512.png",
   "/favicon.svg",
@@ -93,7 +89,7 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// Fetch handler: network-first with cache fallback
+// Fetch handler: network-first with cache fallback (static assets only)
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -102,6 +98,16 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
   if (url.pathname.startsWith("/auth/")) return;
+
+  // Never cache navigation requests (HTML pages) — let Next.js handle client-side routing
+  if (request.mode === "navigate") return;
+
+  // Only cache static assets (images, fonts, CSS, JS chunks from /_next/static/)
+  const isStaticAsset =
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.match(/\.(png|jpg|jpeg|svg|ico|woff2?|ttf|css)$/);
+
+  if (!isStaticAsset) return;
 
   event.respondWith(
     fetch(request)
