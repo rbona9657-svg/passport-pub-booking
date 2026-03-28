@@ -107,64 +107,71 @@ export default function FloorPlanCanvas({
       allTables: PubTable[],
       allElements: VisualElement[]
     ) => {
-      if (crop && crop.width > 0 && crop.height > 0) {
-        const fitScale = containerWidth / crop.width;
-        const canvasHeight = crop.height * fitScale;
-        const pos = { x: -crop.x * fitScale, y: -crop.y * fitScale };
+      // Always compute the bounding box of actual content first
+      const allItems = [
+        ...allTables.map((t) => ({
+          x: t.positionX,
+          y: t.positionY,
+          w: t.width ?? 80,
+          h: t.height ?? 80,
+        })),
+        ...allElements.map((e) => ({
+          x: e.positionX,
+          y: e.positionY,
+          w: e.width ?? 60,
+          h: e.height ?? 60,
+        })),
+      ];
 
-        setStageSize({ width: containerWidth, height: canvasHeight });
+      if (allItems.length === 0) {
+        const fitScale = containerWidth / CANVAS_WIDTH;
+        setStageSize({ width: containerWidth, height: CANVAS_HEIGHT * fitScale });
         setScale(fitScale);
-        setPosition(pos);
-        initialFitRef.current = { scale: fitScale, position: pos };
-      } else {
-        // Fallback: compute bounding box of all content
-        const allItems = [
-          ...allTables.map((t) => ({
-            x: t.positionX,
-            y: t.positionY,
-            w: t.width ?? 80,
-            h: t.height ?? 80,
-          })),
-          ...allElements.map((e) => ({
-            x: e.positionX,
-            y: e.positionY,
-            w: e.width ?? 60,
-            h: e.height ?? 60,
-          })),
-        ];
+        setPosition({ x: 0, y: 0 });
+        initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
+        return;
+      }
 
-        if (allItems.length === 0) {
-          const fitScale = containerWidth / CANVAS_WIDTH;
-          setStageSize({ width: containerWidth, height: CANVAS_HEIGHT * fitScale });
-          setScale(fitScale);
-          setPosition({ x: 0, y: 0 });
-          initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
-        } else {
-          const PADDING = 40;
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-          for (const item of allItems) {
-            minX = Math.min(minX, item.x);
-            minY = Math.min(minY, item.y);
-            maxX = Math.max(maxX, item.x + item.w);
-            maxY = Math.max(maxY, item.y + item.h);
-          }
-          minX -= PADDING;
-          minY -= PADDING;
-          maxX += PADDING;
-          maxY += PADDING;
+      const PADDING = 40;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const item of allItems) {
+        minX = Math.min(minX, item.x);
+        minY = Math.min(minY, item.y);
+        maxX = Math.max(maxX, item.x + item.w);
+        maxY = Math.max(maxY, item.y + item.h);
+      }
+      minX -= PADDING;
+      minY -= PADDING;
+      maxX += PADDING;
+      maxY += PADDING;
 
-          const contentW = maxX - minX;
-          const contentH = maxY - minY;
-          const fitScale = containerWidth / contentW;
-          const canvasHeight = contentH * fitScale;
-          const pos = { x: -minX * fitScale, y: -minY * fitScale };
+      // Use crop only if it's tighter than the bounding box (admin intentionally zoomed in).
+      // Otherwise fall back to the bounding box so content fills the screen on mobile.
+      let effectiveX = minX;
+      let effectiveY = minY;
+      let effectiveW = maxX - minX;
+      let effectiveH = maxY - minY;
 
-          setStageSize({ width: containerWidth, height: canvasHeight });
-          setScale(fitScale);
-          setPosition(pos);
-          initialFitRef.current = { scale: fitScale, position: pos };
+      if (crop && crop.width > 0 && crop.height > 0) {
+        const cropArea = crop.width * crop.height;
+        const bboxArea = effectiveW * effectiveH;
+        // Only use the crop if it's smaller than the bounding box (zoom-in)
+        if (cropArea <= bboxArea * 1.5) {
+          effectiveX = crop.x;
+          effectiveY = crop.y;
+          effectiveW = crop.width;
+          effectiveH = crop.height;
         }
       }
+
+      const fitScale = containerWidth / effectiveW;
+      const canvasHeight = effectiveH * fitScale;
+      const pos = { x: -effectiveX * fitScale, y: -effectiveY * fitScale };
+
+      setStageSize({ width: containerWidth, height: canvasHeight });
+      setScale(fitScale);
+      setPosition(pos);
+      initialFitRef.current = { scale: fitScale, position: pos };
     },
     []
   );
