@@ -153,10 +153,10 @@ export default function FloorPlanCanvas({
     }
   }, [mode]);
 
-  // Recalculate when tables or visual elements change
+  // Recalculate when tables, visual elements, or viewport crop change
   useEffect(() => {
     updateSize();
-  }, [tables, visualElements, updateSize]);
+  }, [tables, visualElements, viewportCrop, updateSize]);
 
   // ResizeObserver for container width changes
   useEffect(() => {
