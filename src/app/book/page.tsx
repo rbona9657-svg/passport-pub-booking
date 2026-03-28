@@ -30,20 +30,7 @@ import {
 } from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
 
-/** Snap an arbitrary HH:MM time to the closest PUB_HOURS entry. */
-function snapToPubHours(time: string): string {
-  const minutes = toMinutesSinceOpen(time);
-  let closest: string = PUB_HOURS[0];
-  let minDiff = Infinity;
-  for (const h of PUB_HOURS) {
-    const diff = Math.abs(toMinutesSinceOpen(h) - minutes);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = h;
-    }
-  }
-  return closest;
-}
+type PubHour = typeof PUB_HOURS[number];
 
 const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanvas"), {
   ssr: false,
@@ -69,10 +56,9 @@ export default function BookPageWrapper() {
 function BookPage() {
   const searchParams = useSearchParams();
 
-  // Read date/time from URL params (e.g. /book?date=2026-04-07&time=20:00)
-  // These are passed from the Passport Pub website match cards
+  // Read date from URL params (e.g. /book?date=2026-04-07)
+  // Passed from the Passport Pub website match cards via iframe
   const paramDate = searchParams.get("date"); // YYYY-MM-DD
-  const paramTime = searchParams.get("time"); // HH:MM
 
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
@@ -81,7 +67,6 @@ function BookPage() {
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [bookingDate, setBookingDate] = useState(() => {
-    // Use URL param date if provided, otherwise today
     if (paramDate) {
       const [y, m, d] = paramDate.split("-").map(Number);
       if (y && m && d) return paramDate;
@@ -89,24 +74,8 @@ function BookPage() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
-  const [arrivalTime, setArrivalTime] = useState(() => {
-    // Use URL param time if provided and valid, snapped to nearest PUB_HOURS
-    if (paramTime && /^\d{2}:\d{2}$/.test(paramTime)) {
-      return snapToPubHours(paramTime);
-    }
-    return "19:00";
-  });
-  const [departureTime, setDepartureTime] = useState(() => {
-    // Calculate departure as arrival + 1 hour (using snapped time)
-    const snapped = paramTime && /^\d{2}:\d{2}$/.test(paramTime)
-      ? snapToPubHours(paramTime)
-      : "19:00";
-    const idx = PUB_HOURS.indexOf(snapped as typeof PUB_HOURS[number]);
-    if (idx >= 0 && idx + 1 < PUB_HOURS.length) {
-      return PUB_HOURS[idx + 1];
-    }
-    return PUB_HOURS[PUB_HOURS.length - 1];
-  });
+  const [arrivalTime, setArrivalTime] = useState<PubHour>("19:00");
+  const [departureTime, setDepartureTime] = useState<PubHour>("21:00");
   const [reservationName, setReservationName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestCount, setGuestCount] = useState("2");
@@ -117,34 +86,22 @@ function BookPage() {
   const [floorPlanLoading, setFloorPlanLoading] = useState(true);
   const { toast } = useToast();
 
-  // Sync URL params to state — handles late param availability and Suspense re-mounts
+  // Sync URL date param to state — handles late param availability and Suspense re-mounts
   const paramsAppliedRef = useRef(false);
   useEffect(() => {
-    if (paramsAppliedRef.current) return;
-    if (!paramDate && !paramTime) return;
+    if (paramsAppliedRef.current || !paramDate) return;
     paramsAppliedRef.current = true;
-
-    if (paramDate) {
-      const [y, m, d] = paramDate.split("-").map(Number);
-      if (y && m && d) {
-        setBookingDate(paramDate);
-      }
+    const [y, m, d] = paramDate.split("-").map(Number);
+    if (y && m && d) {
+      setBookingDate(paramDate);
     }
-
-    if (paramTime && /^\d{2}:\d{2}$/.test(paramTime)) {
-      const snapped = snapToPubHours(paramTime);
-      setArrivalTime(snapped);
-      const idx = PUB_HOURS.indexOf(snapped as typeof PUB_HOURS[number]);
-      if (idx >= 0 && idx + 1 < PUB_HOURS.length) {
-        setDepartureTime(PUB_HOURS[idx + 1]);
-      }
-    }
-  }, [paramDate, paramTime]);
+  }, [paramDate]);
 
   const handleArrivalChange = (val: string) => {
-    setArrivalTime(val);
-    if (toMinutesSinceOpen(departureTime) <= toMinutesSinceOpen(val)) {
-      const idx = PUB_HOURS.indexOf(val as typeof PUB_HOURS[number]);
+    const hour = val as PubHour;
+    setArrivalTime(hour);
+    if (toMinutesSinceOpen(departureTime) <= toMinutesSinceOpen(hour)) {
+      const idx = PUB_HOURS.indexOf(hour);
       if (idx >= 0 && idx < PUB_HOURS.length - 1) {
         setDepartureTime(PUB_HOURS[idx + 1]);
       }
@@ -152,9 +109,10 @@ function BookPage() {
   };
 
   const handleDepartureChange = (val: string) => {
-    setDepartureTime(val);
-    if (toMinutesSinceOpen(val) <= toMinutesSinceOpen(arrivalTime)) {
-      const idx = PUB_HOURS.indexOf(val as typeof PUB_HOURS[number]);
+    const hour = val as PubHour;
+    setDepartureTime(hour);
+    if (toMinutesSinceOpen(hour) <= toMinutesSinceOpen(arrivalTime)) {
+      const idx = PUB_HOURS.indexOf(hour);
       if (idx > 0) {
         setArrivalTime(PUB_HOURS[idx - 1]);
       }
