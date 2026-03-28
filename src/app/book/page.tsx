@@ -30,6 +30,21 @@ import {
 } from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
 
+/** Snap an arbitrary HH:MM time to the closest PUB_HOURS entry. */
+function snapToPubHours(time: string): string {
+  const minutes = toMinutesSinceOpen(time);
+  let closest = PUB_HOURS[0];
+  let minDiff = Infinity;
+  for (const h of PUB_HOURS) {
+    const diff = Math.abs(toMinutesSinceOpen(h) - minutes);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = h;
+    }
+  }
+  return closest;
+}
+
 const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanvas"), {
   ssr: false,
   loading: () => (
@@ -75,18 +90,22 @@ function BookPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
   const [arrivalTime, setArrivalTime] = useState(() => {
-    // Use URL param time if provided and valid, otherwise default
+    // Use URL param time if provided and valid, snapped to nearest PUB_HOURS
     if (paramTime && /^\d{2}:\d{2}$/.test(paramTime)) {
-      return paramTime;
+      return snapToPubHours(paramTime);
     }
     return "19:00";
   });
   const [departureTime, setDepartureTime] = useState(() => {
-    // Calculate departure as arrival + 2 hours
-    const time = paramTime && /^\d{2}:\d{2}$/.test(paramTime) ? paramTime : "19:00";
-    const [h, m] = time.split(":").map(Number);
-    const depH = (h + 2) % 24;
-    return `${String(depH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    // Calculate departure as arrival + 1 hour (using snapped time)
+    const snapped = paramTime && /^\d{2}:\d{2}$/.test(paramTime)
+      ? snapToPubHours(paramTime)
+      : "19:00";
+    const idx = PUB_HOURS.indexOf(snapped as typeof PUB_HOURS[number]);
+    if (idx >= 0 && idx + 1 < PUB_HOURS.length) {
+      return PUB_HOURS[idx + 1];
+    }
+    return PUB_HOURS[PUB_HOURS.length - 1];
   });
   const [reservationName, setReservationName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
@@ -95,7 +114,32 @@ function BookPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
+  const [floorPlanLoading, setFloorPlanLoading] = useState(true);
   const { toast } = useToast();
+
+  // Sync URL params to state — handles late param availability and Suspense re-mounts
+  const paramsAppliedRef = useRef(false);
+  useEffect(() => {
+    if (paramsAppliedRef.current) return;
+    if (!paramDate && !paramTime) return;
+    paramsAppliedRef.current = true;
+
+    if (paramDate) {
+      const [y, m, d] = paramDate.split("-").map(Number);
+      if (y && m && d) {
+        setBookingDate(paramDate);
+      }
+    }
+
+    if (paramTime && /^\d{2}:\d{2}$/.test(paramTime)) {
+      const snapped = snapToPubHours(paramTime);
+      setArrivalTime(snapped);
+      const idx = PUB_HOURS.indexOf(snapped as typeof PUB_HOURS[number]);
+      if (idx >= 0 && idx + 1 < PUB_HOURS.length) {
+        setDepartureTime(PUB_HOURS[idx + 1]);
+      }
+    }
+  }, [paramDate, paramTime]);
 
   const handleArrivalChange = (val: string) => {
     setArrivalTime(val);
@@ -119,6 +163,7 @@ function BookPage() {
 
   // Load floor plan
   useEffect(() => {
+    setFloorPlanLoading(true);
     fetch("/api/floor-plan")
       .then((res) => res.json())
       .then((data) => {
@@ -131,7 +176,8 @@ function BookPage() {
           }
         }
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setFloorPlanLoading(false));
   }, []);
 
   // Keep a ref to selectedTableId so the availability effect can read it without re-triggering
@@ -370,15 +416,21 @@ function BookPage() {
 
         {/* Floor Plan */}
         <div className="mb-6">
-          <FloorPlanCanvas
-            mode="booking"
-            tables={tables}
-            visualElements={elements}
-            tableStatuses={tableStatuses}
-            selectedTableId={selectedTableId}
-            onTableSelect={handleTableSelect}
-            viewportCrop={viewportCrop}
-          />
+          {floorPlanLoading ? (
+            <div className="flex items-center justify-center h-[400px] bg-muted/30 rounded-xl border border-border/40">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <FloorPlanCanvas
+              mode="booking"
+              tables={tables}
+              visualElements={elements}
+              tableStatuses={tableStatuses}
+              selectedTableId={selectedTableId}
+              onTableSelect={handleTableSelect}
+              viewportCrop={viewportCrop}
+            />
+          )}
         </div>
 
         {/* Capacity Warning */}
