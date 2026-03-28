@@ -33,7 +33,7 @@ import type { PubTable, VisualElement } from "@/types";
 /** Snap an arbitrary HH:MM time to the closest PUB_HOURS entry. */
 function snapToPubHours(time: string): string {
   const minutes = toMinutesSinceOpen(time);
-  let closest = PUB_HOURS[0];
+  let closest: string = PUB_HOURS[0];
   let minDiff = Infinity;
   for (const h of PUB_HOURS) {
     const diff = Math.abs(toMinutesSinceOpen(h) - minutes);
