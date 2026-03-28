@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,26 @@ const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanva
   ),
 });
 
-export default function BookPage() {
+export default function BookPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <BookPage />
+    </Suspense>
+  );
+}
+
+function BookPage() {
+  const searchParams = useSearchParams();
+
+  // Read date/time from URL params (e.g. /book?date=2026-04-07&time=20:00)
+  // These are passed from the Passport Pub website match cards
+  const paramDate = searchParams.get("date"); // YYYY-MM-DD
+  const paramTime = searchParams.get("time"); // HH:MM
+
   const [tables, setTables] = useState<PubTable[]>([]);
   const [elements, setElements] = useState<VisualElement[]>([]);
   const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
@@ -46,11 +66,28 @@ export default function BookPage() {
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [bookingDate, setBookingDate] = useState(() => {
+    // Use URL param date if provided, otherwise today
+    if (paramDate) {
+      const [y, m, d] = paramDate.split("-").map(Number);
+      if (y && m && d) return paramDate;
+    }
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
-  const [arrivalTime, setArrivalTime] = useState("19:00");
-  const [departureTime, setDepartureTime] = useState("21:00");
+  const [arrivalTime, setArrivalTime] = useState(() => {
+    // Use URL param time if provided and valid, otherwise default
+    if (paramTime && /^\d{2}:\d{2}$/.test(paramTime)) {
+      return paramTime;
+    }
+    return "19:00";
+  });
+  const [departureTime, setDepartureTime] = useState(() => {
+    // Calculate departure as arrival + 2 hours
+    const time = paramTime && /^\d{2}:\d{2}$/.test(paramTime) ? paramTime : "19:00";
+    const [h, m] = time.split(":").map(Number);
+    const depH = (h + 2) % 24;
+    return `${String(depH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  });
   const [reservationName, setReservationName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestCount, setGuestCount] = useState("2");
