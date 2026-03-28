@@ -373,22 +373,21 @@ function BookPage() {
         )}
 
         {/* Floor Plan */}
-        <div className="mb-6">
-          {floorPlanLoading ? (
-            <div className="flex items-center justify-center h-[400px] bg-muted/30 rounded-xl border border-border/40">
+        <div className="mb-6 relative">
+          {floorPlanLoading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted/60 rounded-xl">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : (
-            <FloorPlanCanvas
-              mode="booking"
-              tables={tables}
-              visualElements={elements}
-              tableStatuses={tableStatuses}
-              selectedTableId={selectedTableId}
-              onTableSelect={handleTableSelect}
-              viewportCrop={viewportCrop}
-            />
           )}
+          <FloorPlanCanvas
+            mode="booking"
+            tables={tables}
+            visualElements={elements}
+            tableStatuses={tableStatuses}
+            selectedTableId={selectedTableId}
+            onTableSelect={handleTableSelect}
+            viewportCrop={viewportCrop}
+          />
         </div>
 
         {/* Capacity Warning */}
