@@ -74,7 +74,7 @@ export default function FloorPlanCanvas({
   const elementsRef = useRef(visualElements);
   elementsRef.current = visualElements;
 
-  // Stable sizing function
+  // Stable sizing function (editor mode + resize handler)
   const updateSize = useCallback(() => {
     if (!containerRef.current) return;
     const containerWidth = containerRef.current.getBoundingClientRect().width;
@@ -84,8 +84,30 @@ export default function FloorPlanCanvas({
     setIsMobile(mobile);
 
     if (mode === "booking") {
-      // Use saved viewport crop if available — one simple division, no edge cases
+      // In booking mode, sizing is handled by the dedicated effect below.
+      // However, ResizeObserver still calls this on container resize,
+      // so re-run the calculation using the latest ref values.
       const crop = viewportCropRef.current;
+      const allTables = tablesRef.current;
+      const allElements = elementsRef.current;
+      applyBookingSize(containerWidth, crop, allTables, allElements);
+    } else {
+      const maxH = mobile ? 500 : 700;
+      const minH = 350;
+      const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
+      setStageSize({ width: containerWidth, height });
+    }
+  }, [mode]);
+
+  // Extracted sizing logic for booking mode so it can be called from both
+  // the props-driven effect and the ResizeObserver callback.
+  const applyBookingSize = useCallback(
+    (
+      containerWidth: number,
+      crop: ViewportCrop | null | undefined,
+      allTables: PubTable[],
+      allElements: VisualElement[]
+    ) => {
       if (crop && crop.width > 0 && crop.height > 0) {
         const fitScale = containerWidth / crop.width;
         const canvasHeight = crop.height * fitScale;
@@ -98,13 +120,13 @@ export default function FloorPlanCanvas({
       } else {
         // Fallback: compute bounding box of all content
         const allItems = [
-          ...tablesRef.current.map((t) => ({
+          ...allTables.map((t) => ({
             x: t.positionX,
             y: t.positionY,
             w: t.width ?? 80,
             h: t.height ?? 80,
           })),
-          ...elementsRef.current.map((e) => ({
+          ...allElements.map((e) => ({
             x: e.positionX,
             y: e.positionY,
             w: e.width ?? 60,
@@ -113,7 +135,6 @@ export default function FloorPlanCanvas({
         ];
 
         if (allItems.length === 0) {
-          // No content — just show the empty canvas
           const fitScale = containerWidth / CANVAS_WIDTH;
           setStageSize({ width: containerWidth, height: CANVAS_HEIGHT * fitScale });
           setScale(fitScale);
@@ -145,18 +166,18 @@ export default function FloorPlanCanvas({
           initialFitRef.current = { scale: fitScale, position: pos };
         }
       }
-    } else {
-      const maxH = mobile ? 500 : 700;
-      const minH = 350;
-      const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
-      setStageSize({ width: containerWidth, height });
-    }
-  }, [mode]);
+    },
+    []
+  );
 
-  // Recalculate when tables, visual elements, or viewport crop change
+  // Booking mode: recalculate sizing using props directly (not refs) to avoid
+  // timing issues in iframes where ref updates may not be visible to stale callbacks.
   useEffect(() => {
-    updateSize();
-  }, [tables, visualElements, viewportCrop, updateSize]);
+    if (mode !== "booking" || !containerRef.current) return;
+    const containerWidth = containerRef.current.getBoundingClientRect().width;
+    if (containerWidth < 50) return;
+    applyBookingSize(containerWidth, viewportCrop, tables, visualElements);
+  }, [mode, tables, visualElements, viewportCrop, applyBookingSize]);
 
   // ResizeObserver for container width changes
   useEffect(() => {
