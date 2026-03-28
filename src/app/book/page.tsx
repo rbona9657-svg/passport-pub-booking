@@ -83,7 +83,6 @@ function BookPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
-  const [floorPlanLoading, setFloorPlanLoading] = useState(true);
   const { toast } = useToast();
 
   // Sync URL date param to state — handles late param availability and Suspense re-mounts
@@ -121,7 +120,6 @@ function BookPage() {
 
   // Load floor plan
   useEffect(() => {
-    setFloorPlanLoading(true);
     fetch("/api/floor-plan")
       .then((res) => res.json())
       .then((data) => {
@@ -134,8 +132,7 @@ function BookPage() {
           }
         }
       })
-      .catch(console.error)
-      .finally(() => setFloorPlanLoading(false));
+      .catch(console.error);
   }, []);
 
   // Keep a ref to selectedTableId so the availability effect can read it without re-triggering
@@ -373,12 +370,7 @@ function BookPage() {
         )}
 
         {/* Floor Plan */}
-        <div className="mb-6 relative">
-          {floorPlanLoading && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-muted/60 rounded-xl">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          )}
+        <div className="mb-6">
           <FloorPlanCanvas
             mode="booking"
             tables={tables}

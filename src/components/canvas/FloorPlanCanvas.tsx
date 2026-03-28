@@ -84,12 +84,11 @@ export default function FloorPlanCanvas({
     setIsMobile(mobile);
 
     if (mode === "booking") {
-      // In booking mode, sizing is handled by the dedicated effect below.
-      // However, ResizeObserver still calls this on container resize,
-      // so re-run the calculation using the latest ref values.
       const crop = viewportCropRef.current;
       const allTables = tablesRef.current;
       const allElements = elementsRef.current;
+      // Skip sizing if no data loaded yet — avoid rendering at wrong scale
+      if (allTables.length === 0 && allElements.length === 0 && !crop) return;
       applyBookingSize(containerWidth, crop, allTables, allElements);
     } else {
       const maxH = mobile ? 500 : 700;
@@ -172,11 +171,19 @@ export default function FloorPlanCanvas({
 
   // Booking mode: recalculate sizing using props directly (not refs) to avoid
   // timing issues in iframes where ref updates may not be visible to stale callbacks.
+  // Uses rAF to ensure the container layout has settled (critical in iframes).
   useEffect(() => {
-    if (mode !== "booking" || !containerRef.current) return;
-    const containerWidth = containerRef.current.getBoundingClientRect().width;
-    if (containerWidth < 50) return;
-    applyBookingSize(containerWidth, viewportCrop, tables, visualElements);
+    if (mode !== "booking") return;
+    // Don't size until we have actual floor plan data
+    if (tables.length === 0 && visualElements.length === 0 && !viewportCrop) return;
+
+    const raf = requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+      const containerWidth = containerRef.current.getBoundingClientRect().width;
+      if (containerWidth < 50) return;
+      applyBookingSize(containerWidth, viewportCrop, tables, visualElements);
+    });
+    return () => cancelAnimationFrame(raf);
   }, [mode, tables, visualElements, viewportCrop, applyBookingSize]);
 
   // ResizeObserver for container width changes
