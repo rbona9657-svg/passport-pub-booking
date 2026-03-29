@@ -176,15 +176,21 @@ export async function getAdminBookings(filters?: {
 export async function updateBookingStatus(
   id: string,
   status: "approved" | "rejected" | "cancelled",
-  adminNote?: string
+  adminNote?: string,
+  newTableId?: string
 ) {
+  const setData: Record<string, unknown> = {
+    status,
+    adminNote: adminNote ?? null,
+    updatedAt: new Date(),
+  };
+  if (newTableId) {
+    setData.tableId = newTableId;
+  }
+
   const [updated] = await db
     .update(bookings)
-    .set({
-      status,
-      adminNote: adminNote ?? null,
-      updatedAt: new Date(),
-    })
+    .set(setData)
     .where(eq(bookings.id, id))
     .returning();
 
@@ -209,6 +215,31 @@ export async function updateBooking(
     .returning();
 
   return updated;
+}
+
+export async function getExistingBookingsForEmail(
+  email: string,
+  date: string
+) {
+  const result = await db
+    .select({
+      booking: bookings,
+      table: tables,
+    })
+    .from(bookings)
+    .innerJoin(tables, eq(tables.id, bookings.tableId))
+    .where(
+      and(
+        eq(bookings.guestEmail, email),
+        eq(bookings.bookingDate, date),
+        inArray(bookings.status, ["pending", "approved"])
+      )
+    );
+
+  return result.map((r) => ({
+    ...r.booking,
+    table: r.table,
+  }));
 }
 
 export async function getPendingBookingsCount() {

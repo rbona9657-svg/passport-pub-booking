@@ -43,6 +43,11 @@ export const rejectBookingSchema = z.object({
   reason: z.string().min(1, "Please provide a reason").max(500),
 });
 
+export const approveBookingSchema = z.object({
+  newTableId: z.string().uuid().optional(),
+  adminNote: z.string().max(500).optional().nullable(),
+});
+
 export const quickBookSchema = z.object({
   tableId: z.string().uuid(),
   reservationName: z.string().min(2).max(100),
@@ -97,4 +102,5 @@ export type CreateBookingInput = z.infer<typeof createBookingSchema>;
 export type UpdateBookingInput = z.infer<typeof updateBookingSchema>;
 export type RejectBookingInput = z.infer<typeof rejectBookingSchema>;
 export type QuickBookInput = z.infer<typeof quickBookSchema>;
+export type ApproveBookingInput = z.infer<typeof approveBookingSchema>;
 export type SaveFloorPlanInput = z.infer<typeof saveFloorPlanSchema>;

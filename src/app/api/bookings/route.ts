@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { createBooking, getAdminBookings, getUserBookings } from "@/lib/db/queries/bookings";
+import { createBooking, getAdminBookings, getUserBookings, getExistingBookingsForEmail } from "@/lib/db/queries/bookings";
 import { createBookingSchema, createBookingAdminSchema } from "@/lib/validations";
 import { db } from "@/lib/db";
 import { tables } from "@/lib/db/schema";
@@ -8,6 +8,23 @@ import { eq } from "drizzle-orm";
 import { sendPushToAdmins } from "@/lib/push";
 import { sendBookingPending, sendAdminNewBooking } from "@/lib/email";
 import { getLocalToday } from "@/lib/constants";
+
+// Simple in-memory rate limiting: max 5 bookings per IP per hour
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -38,9 +55,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit check
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: "Too many booking requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
 
-    // Check if admin — if so, guestEmail is optional
+    // Check if admin — session before parse (remote pattern)
     const session = await auth();
     const isAdmin = session?.user?.role === "admin";
 
@@ -80,6 +106,41 @@ export async function POST(req: NextRequest) {
     const today = getLocalToday();
     if (bookingDate < today) {
       return NextResponse.json({ error: "Cannot book for a past date" }, { status: 400 });
+    }
+
+    // Validate departure is after arrival (accounting for midnight crossing)
+    // For midnight-crossing bookings (e.g., 23:00-01:00), departure < arrival is valid
+    if (arrivalTime === departureTime) {
+      return NextResponse.json({ error: "Departure time must be different from arrival time" }, { status: 400 });
+    }
+
+    // Check for existing bookings with same email on the same date
+    const forceSubmit = body.forceSubmit === true;
+    if (!forceSubmit && guestEmail) {
+      const existingBookings = await getExistingBookingsForEmail(guestEmail, bookingDate);
+      if (existingBookings.length > 0) {
+        // Check for time overlaps to provide stronger warning
+        const hasTimeOverlap = existingBookings.some((b) => {
+          return b.arrivalTime < departureTime && b.departureTime > arrivalTime;
+        });
+
+        return NextResponse.json(
+          {
+            error: "duplicate_booking",
+            hasTimeOverlap,
+            existingBookings: existingBookings.map((b) => ({
+              id: b.id,
+              arrivalTime: b.arrivalTime,
+              departureTime: b.departureTime,
+              guestCount: b.guestCount,
+              status: b.status,
+              tableNumber: b.table.tableNumber,
+            })),
+            bookingDate,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Create the booking

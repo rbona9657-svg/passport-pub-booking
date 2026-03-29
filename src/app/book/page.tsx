@@ -27,6 +27,9 @@ import {
   User,
   AlertTriangle,
   Info,
+  ClipboardList,
+  Combine,
+  ArrowRight,
 } from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
 
@@ -83,6 +86,24 @@ function BookPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [capacityWarning, setCapacityWarning] = useState<string | null>(null);
+  // Large party combo state
+  const [largePartyCombo, setLargePartyCombo] = useState<Array<{ id: string; tableNumber: string; seats: number; guestAlloc: number }> | null>(null);
+  const [pendingComboTables, setPendingComboTables] = useState<Array<{ id: string; tableNumber: string; seats: number; guestAlloc: number }>>([]);
+  const [comboGroupId, setComboGroupId] = useState<string | null>(null);
+  const [originalGuestCount, setOriginalGuestCount] = useState<number | null>(null);
+
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    existingBookings: Array<{
+      id: string;
+      arrivalTime: string;
+      departureTime: string;
+      guestCount: number;
+      status: string;
+      tableNumber: string;
+    }>;
+    bookingDate: string;
+    hasTimeOverlap?: boolean;
+  } | null>(null);
   const { toast } = useToast();
 
   // Sync URL date param to state — handles late param availability and Suspense re-mounts
@@ -177,11 +198,51 @@ function BookPage() {
     }
   }, [guestCount, selectedTable]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Detect large party: guest count exceeds ALL available tables
+  useEffect(() => {
+    const count = parseInt(guestCount);
+    if (isNaN(count) || count <= 0 || tables.length === 0 || pendingComboTables.length > 0) {
+      if (pendingComboTables.length === 0) setLargePartyCombo(null);
+      return;
+    }
+
+    const availableTables = tables
+      .filter((t) => tableStatuses[t.id] === "available")
+      .sort((a, b) => b.seats - a.seats);
+
+    const maxSeats = availableTables.length > 0 ? availableTables[0].seats : 0;
+
+    if (count <= maxSeats) {
+      setLargePartyCombo(null);
+      return;
+    }
+
+    // Greedy: pick largest tables until sum >= count
+    const combo: typeof largePartyCombo = [];
+    let remaining = count;
+    for (const t of availableTables) {
+      if (remaining <= 0) break;
+      const alloc = Math.min(t.seats, remaining);
+      combo.push({ id: t.id, tableNumber: t.tableNumber, seats: t.seats, guestAlloc: alloc });
+      remaining -= alloc;
+    }
+
+    if (remaining > 0) {
+      // Not enough tables at all
+      setLargePartyCombo(null);
+      setCapacityWarning(`We don't have enough available tables to seat ${count} guests at this time. Please try a different date or time.`);
+    } else {
+      setLargePartyCombo(combo);
+      // Clear the single-table capacity warning since we're showing combo
+      if (!selectedTable) setCapacityWarning(null);
+    }
+  }, [guestCount, tables, tableStatuses, selectedTable, pendingComboTables.length]);
+
+  const submitBooking = async (forceSubmit = false) => {
     if (!selectedTableId || capacityWarning) return;
 
     setLoading(true);
+    setDuplicateWarning(null);
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
@@ -195,17 +256,27 @@ function BookPage() {
           arrivalTime,
           departureTime,
           comment: comment || null,
+          forceSubmit,
         }),
       });
 
       if (res.ok) {
         setSubmitted(true);
+        setDuplicateWarning(null);
         toast({ title: "Booking submitted!", description: "Check your email for confirmation details." });
-        // Refresh availability
         const statusRes = await fetch(
           `/api/tables/availability?floorPlanId=${floorPlanId}&date=${bookingDate}&arrival=${arrivalTime}&departure=${departureTime}`
         );
         if (statusRes.ok) setTableStatuses(await statusRes.json());
+      } else if (res.status === 409) {
+        const data = await res.json();
+        if (data.error === "duplicate_booking") {
+          setDuplicateWarning({
+            existingBookings: data.existingBookings,
+            bookingDate: data.bookingDate,
+            hasTimeOverlap: data.hasTimeOverlap,
+          });
+        }
       } else {
         const data = await res.json();
         let errorMsg = "Please try again";
@@ -228,12 +299,50 @@ function BookPage() {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitBooking(false);
+  };
+
+  const handleForceSubmit = async () => {
+    await submitBooking(true);
+  };
+
+  const startComboBooking = (combo: NonNullable<typeof largePartyCombo>) => {
+    const totalGuests = parseInt(guestCount);
+    setOriginalGuestCount(totalGuests);
+    const groupId = crypto.randomUUID();
+    setComboGroupId(groupId);
+    setPendingComboTables(combo.slice(1)); // remaining tables after the first
+    setLargePartyCombo(null);
+
+    // Auto-select first table
+    const first = combo[0];
+    setSelectedTableId(first.id);
+    setGuestCount(String(first.guestAlloc));
+    setComment(`Merged tables for ${totalGuests} guests (1/${combo.length}) [GROUP:${groupId}]`);
+  };
+
+  const continueComboBooking = () => {
+    const next = pendingComboTables[0];
+    const remaining = pendingComboTables.slice(1);
+    const totalTables = (originalGuestCount ? Math.ceil(originalGuestCount / (next?.seats || 1)) : 0) || pendingComboTables.length + 1;
+    const currentIndex = totalTables - pendingComboTables.length + 1;
+
+    setPendingComboTables(remaining);
+    setSubmitted(false);
+    setSelectedTableId(next.id);
+    setGuestCount(String(next.guestAlloc));
+    setComment(`Merged tables for ${originalGuestCount} guests (${currentIndex}/${totalTables}) [GROUP:${comboGroupId}]`);
+  };
+
   const handleTableSelect = (tableId: string) => {
     const status = tableStatuses[tableId];
     if (status === "booked") return;
     setSelectedTableId(tableId === selectedTableId ? null : tableId);
     setSubmitted(false);
     setCapacityWarning(null);
+    setDuplicateWarning(null);
   };
 
   return (
@@ -343,7 +452,7 @@ function BookPage() {
         </div>
 
         {/* Multiple Tables Suggestion */}
-        {needsMultipleTables && (
+        {needsMultipleTables && !largePartyCombo && (
           <Card className="mb-6 border-blue-500/40 bg-blue-500/5 animate-in slide-in-from-top-4 duration-300">
             <CardContent className="py-5">
               <div className="flex items-start gap-3">
@@ -395,6 +504,115 @@ function BookPage() {
                 <div>
                   <h3 className="font-semibold text-amber-200">Not Enough Seats</h3>
                   <p className="text-sm text-amber-300/80 mt-1">{capacityWarning}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Large Party Combo Suggestion */}
+        {largePartyCombo && largePartyCombo.length > 0 && !selectedTable && (
+          <Card className="mb-6 border-blue-500/40 bg-blue-500/5 animate-in slide-in-from-bottom-4 duration-300">
+            <CardContent className="py-5">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15">
+                    <Combine className="h-5 w-5 text-blue-400" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-blue-200">{guestCount} guests? We&apos;ll push tables together!</h3>
+                  <p className="text-sm text-blue-300/80 mt-1">
+                    No single table fits your group, but our staff will physically merge tables for you. We recommend booking {largePartyCombo.length} tables:
+                  </p>
+                  <div className="mt-3 space-y-1.5">
+                    {largePartyCombo.map((t, i) => (
+                      <div key={t.id} className="text-sm text-blue-300/90 flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium">{i + 1}</span>
+                        Table {t.tableNumber} — {t.guestAlloc} of {t.seats} seats
+                      </div>
+                    ))}
+                    <div className="text-sm text-blue-200 font-medium mt-2">
+                      Total: {largePartyCombo.reduce((sum, t) => sum + t.guestAlloc, 0)} seats for {guestCount} guests
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-300/60 mt-3">
+                    You&apos;ll submit {largePartyCombo.length} separate bookings — we&apos;ll guide you through each one. Add your name and email once, and we&apos;ll pre-fill the rest.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => startComboBooking(largePartyCombo)}
+                  >
+                    <ArrowRight className="h-4 w-4 mr-1.5" />
+                    Start Booking ({largePartyCombo.length} tables)
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Combo Progress Indicator */}
+        {pendingComboTables.length > 0 && !submitted && (
+          <div className="mb-4 flex items-center gap-2 text-sm text-blue-300/80">
+            <Combine className="h-4 w-4" />
+            Merged table booking — {pendingComboTables.length} table{pendingComboTables.length > 1 ? "s" : ""} remaining after this one
+          </div>
+        )}
+
+        {/* Duplicate Booking Warning */}
+        {duplicateWarning && (
+          <Card className="mb-6 border-amber-500/40 bg-amber-500/5 animate-in slide-in-from-bottom-4 duration-300">
+            <CardContent className="py-5">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15">
+                    <ClipboardList className="h-5 w-5 text-amber-500" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-amber-200">
+                    {duplicateWarning.hasTimeOverlap
+                      ? "Time conflict with your existing booking!"
+                      : "You already have a booking on this date!"}
+                  </h3>
+                  <p className="text-sm text-amber-300/80 mt-1">
+                    {duplicateWarning.hasTimeOverlap
+                      ? "Your new booking overlaps with an existing one:"
+                      : `We found ${duplicateWarning.existingBookings.length} existing booking${duplicateWarning.existingBookings.length > 1 ? "s" : ""} for ${duplicateWarning.bookingDate}:`}
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    {duplicateWarning.existingBookings.map((b) => (
+                      <div key={b.id} className="text-sm text-amber-300/90 flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5" />
+                        {b.arrivalTime}–{b.departureTime} &middot; Table {b.tableNumber} ({b.guestCount} guests) &middot;{" "}
+                        <span className={b.status === "approved" ? "text-green-400" : "text-yellow-400"}>
+                          {b.status === "approved" ? "Confirmed" : "Pending"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
+                      onClick={() => window.location.href = "/my-bookings"}
+                    >
+                      <ClipboardList className="h-4 w-4 mr-1.5" />
+                      Manage My Bookings
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      onClick={handleForceSubmit}
+                      disabled={loading}
+                    >
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                      Book Another Table Anyway
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -487,29 +705,51 @@ function BookPage() {
         )}
 
         {submitted && (
-          <Card className="border-green-500/30 bg-green-500/5">
+          <Card className={pendingComboTables.length > 0 ? "border-blue-500/30 bg-blue-500/5" : "border-green-500/30 bg-green-500/5"}>
             <CardContent className="py-8 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/booking-success.svg" alt="" className="mx-auto mb-4 h-24 w-24" />
               <h3 className="text-lg font-semibold">Booking Submitted!</h3>
               <p className="text-muted-foreground mt-2">
-                Your booking request has been received. We'll review it and send a confirmation to <strong className="text-foreground">{guestEmail}</strong> once approved.
+                Your booking request has been received. We&apos;ll review it and send a confirmation to <strong className="text-foreground">{guestEmail}</strong> once approved.
               </p>
-              <div className="mt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSubmitted(false);
-                    setSelectedTableId(null);
-                    setReservationName("");
-                    setGuestEmail("");
-                    setGuestCount("2");
-                    setComment("");
-                  }}
-                >
-                  Book Another Table
-                </Button>
-              </div>
+
+              {/* Combo continuation CTA */}
+              {pendingComboTables.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  <div className="inline-flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 px-4 py-2 text-sm text-blue-300">
+                    <Combine className="h-4 w-4" />
+                    {pendingComboTables.length} more table{pendingComboTables.length > 1 ? "s" : ""} to book for your group of {originalGuestCount}!
+                  </div>
+                  <div>
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={continueComboBooking}
+                    >
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Continue: Table {pendingComboTables[0].tableNumber} ({pendingComboTables[0].guestAlloc} guests)
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSubmitted(false);
+                      setSelectedTableId(null);
+                      setReservationName("");
+                      setGuestEmail("");
+                      setGuestCount("2");
+                      setComment("");
+                      setOriginalGuestCount(null);
+                      setComboGroupId(null);
+                    }}
+                  >
+                    Book Another Table
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

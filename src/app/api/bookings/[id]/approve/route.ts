@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBookingById, updateBookingStatus } from "@/lib/db/queries/bookings";
 import { sendBookingApproved } from "@/lib/email";
 import { sendPushToUser } from "@/lib/push";
+import { db } from "@/lib/db";
+import { tables } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
-async function handleApproval(id: string) {
+async function handleApproval(id: string, newTableId?: string, adminNote?: string) {
   const booking = await getBookingById(id);
 
   if (!booking) {
@@ -14,7 +17,23 @@ async function handleApproval(id: string) {
     return { error: "This booking has already been processed", status: 400 };
   }
 
-  await updateBookingStatus(id, "approved");
+  // If admin is reassigning to a different table, verify it exists
+  let finalTableNumber = booking.table?.tableNumber ?? "N/A";
+  const tableChanged = newTableId && newTableId !== booking.tableId;
+
+  if (tableChanged) {
+    const [newTable] = await db
+      .select()
+      .from(tables)
+      .where(eq(tables.id, newTableId))
+      .limit(1);
+    if (!newTable) {
+      return { error: "New table not found", status: 404 };
+    }
+    finalTableNumber = newTable.tableNumber;
+  }
+
+  await updateBookingStatus(id, "approved", adminNote, tableChanged ? newTableId : undefined);
 
   // Send approval email and track result
   // Prefer guestEmail (explicitly provided for notifications) over user account email
@@ -24,6 +43,10 @@ async function handleApproval(id: string) {
   let emailError: string | null = null;
 
   if (email) {
+    const fullComment = [booking.comment, adminNote, tableChanged ? `Table reassigned to ${finalTableNumber}` : ""]
+      .filter(Boolean)
+      .join(" | ") || null;
+
     try {
       await sendBookingApproved(email, {
         reservationName: booking.reservationName,
@@ -31,8 +54,11 @@ async function handleApproval(id: string) {
         arrivalTime: booking.arrivalTime,
         departureTime: booking.departureTime,
         guestCount: booking.guestCount,
-        tableNumber: booking.table?.tableNumber ?? "N/A",
-        comment: booking.comment,
+        tableNumber: finalTableNumber,
+        comment: fullComment,
+        adminNote: adminNote || undefined,
+        tableChanged: !!tableChanged,
+        originalTableNumber: tableChanged ? (booking.table?.tableNumber ?? "N/A") : undefined,
       });
       emailSent = true;
     } catch (err) {
@@ -47,7 +73,7 @@ async function handleApproval(id: string) {
   if (booking.userId) {
     sendPushToUser(booking.userId, {
       title: "Booking Confirmed!",
-      body: `Your table at Passport Pub on ${booking.bookingDate} is confirmed!`,
+      body: `Your table at Passport Pub on ${booking.bookingDate} is confirmed!${tableChanged ? ` (Table ${finalTableNumber})` : ""}`,
       url: "/my-bookings",
     }).catch(console.error);
   }
@@ -62,7 +88,18 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const result = await handleApproval(id);
+    let newTableId: string | undefined;
+    let adminNote: string | undefined;
+
+    try {
+      const body = await req.json();
+      newTableId = body.newTableId;
+      adminNote = body.adminNote;
+    } catch {
+      // No body is fine — simple approve without reassignment
+    }
+
+    const result = await handleApproval(id, newTableId, adminNote);
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }

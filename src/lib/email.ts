@@ -10,6 +10,9 @@ interface BookingEmailData {
   guestCount: number;
   tableNumber: string;
   comment?: string | null;
+  adminNote?: string;
+  tableChanged?: boolean;
+  originalTableNumber?: string;
 }
 
 function emailWrapper(content: string) {
@@ -92,6 +95,18 @@ export async function sendAdminNewBooking(bookingId: string, data: BookingEmailD
 }
 
 export async function sendBookingApproved(to: string, data: BookingEmailData) {
+  const tableChangeNote = data.tableChanged && data.originalTableNumber
+    ? `<div style="background: #eff6ff; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="color: #1e40af; font-size: 14px; margin: 0;"><strong>Note:</strong> Your table has been changed from Table ${data.originalTableNumber} to Table ${data.tableNumber} for a better seating arrangement.</p>
+      </div>`
+    : "";
+
+  const adminNoteBlock = data.adminNote
+    ? `<div style="background: #f0fdf4; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="color: #166534; font-size: 14px; margin: 0;"><strong>From the team:</strong> ${data.adminNote}</p>
+      </div>`
+    : "";
+
   return sendEmail(
     to,
     "Booking Confirmed! - Passport Pub",
@@ -105,6 +120,8 @@ export async function sendBookingApproved(to: string, data: BookingEmailData) {
           Great news! Your table is reserved. We're looking forward to seeing you!
         </p>
         ${bookingDetailsBlock(data)}
+        ${tableChangeNote}
+        ${adminNoteBlock}
         <div style="text-align: center; margin-top: 20px;">
           <p style="color: #475569; font-size: 15px; font-weight: 600;">See you at Passport Pub!</p>
         </div>
