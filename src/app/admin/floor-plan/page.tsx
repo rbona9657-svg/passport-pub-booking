@@ -274,7 +274,7 @@ export default function FloorPlanEditor() {
         </div>
       </div>
 
-      <div ref={canvasContainerRef} className="relative">
+      <div className="space-y-0">
         <CanvasToolbar
           onAddTable={handleAddTable}
           onAddElement={handleAddElement}
@@ -302,32 +302,34 @@ export default function FloorPlanEditor() {
           saving={saving}
         />
 
-        <FloorPlanCanvas
-          mode="editor"
-          tables={tables}
-          visualElements={elements}
-          onTableSelect={handleTableSelect}
-          onLayoutChange={handleLayoutChange}
-          selectedEditorId={selectedEditorId}
-          onEditorSelect={setSelectedEditorId}
-        />
+        <div ref={canvasContainerRef} className="relative">
+          <FloorPlanCanvas
+            mode="editor"
+            tables={tables}
+            visualElements={elements}
+            onTableSelect={handleTableSelect}
+            onLayoutChange={handleLayoutChange}
+            selectedEditorId={selectedEditorId}
+            onEditorSelect={setSelectedEditorId}
+          />
 
-        {cropping && (() => {
-          const el = document.querySelector("[data-canvas]") as HTMLElement | null;
-          const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => unknown> | undefined;
-          const sc = controls?.getScale ? (controls.getScale() as number) : 1;
-          const pos = controls?.getPosition ? (controls.getPosition() as { x: number; y: number }) : { x: 0, y: 0 };
-          return (
-            <CropSelector
-              canvasContainerRef={canvasContainerRef}
-              stageScale={sc}
-              stagePosition={pos}
-              initialCrop={savedCrop}
-              onConfirm={handleCropConfirm}
-              onCancel={handleCropCancel}
-            />
-          );
-        })()}
+          {cropping && (() => {
+            const el = document.querySelector("[data-canvas]") as HTMLElement | null;
+            const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => unknown> | undefined;
+            const sc = controls?.getScale ? (controls.getScale() as number) : 1;
+            const pos = controls?.getPosition ? (controls.getPosition() as { x: number; y: number }) : { x: 0, y: 0 };
+            return (
+              <CropSelector
+                canvasContainerRef={canvasContainerRef}
+                stageScale={sc}
+                stagePosition={pos}
+                initialCrop={savedCrop}
+                onConfirm={handleCropConfirm}
+                onCancel={handleCropCancel}
+              />
+            );
+          })()}
+        </div>
       </div>
 
       {/* Size info for selected item */}

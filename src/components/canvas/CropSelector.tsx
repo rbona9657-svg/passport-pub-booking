@@ -4,6 +4,10 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Crop, Check, X } from "lucide-react";
 
+/** Default canvas dimensions matching FloorPlanCanvas */
+const CANVAS_WIDTH = 1200;
+const CANVAS_HEIGHT = 800;
+
 interface CropSelectorProps {
   /** The canvas element to overlay on (used for sizing) */
   canvasContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -38,24 +42,23 @@ export default function CropSelector({
     if (!container) return;
     const bounds = container.getBoundingClientRect();
 
-    if (initialCrop && initialCrop.width > 0) {
-      // Convert canvas coordinates to screen coordinates
-      setRect({
-        left: initialCrop.x * stageScale + stagePosition.x,
-        top: initialCrop.y * stageScale + stagePosition.y,
-        width: initialCrop.width * stageScale,
-        height: initialCrop.height * stageScale,
-      });
-    } else {
-      // Default: 80% of the container, centered
-      const margin = 0.1;
-      setRect({
-        left: bounds.width * margin,
-        top: bounds.height * margin,
-        width: bounds.width * (1 - 2 * margin),
-        height: bounds.height * (1 - 2 * margin),
-      });
-    }
+    // Determine the canvas-space crop to display
+    const crop = initialCrop && initialCrop.width > 0
+      ? initialCrop
+      : { x: 0, y: 0, width: CANVAS_WIDTH, height: CANVAS_HEIGHT };
+
+    // Convert canvas coordinates to screen coordinates, clamped to container
+    const rawLeft = crop.x * stageScale + stagePosition.x;
+    const rawTop = crop.y * stageScale + stagePosition.y;
+    const rawWidth = crop.width * stageScale;
+    const rawHeight = crop.height * stageScale;
+
+    setRect({
+      left: Math.max(0, rawLeft),
+      top: Math.max(0, rawTop),
+      width: Math.min(rawWidth, bounds.width - Math.max(0, rawLeft)),
+      height: Math.min(rawHeight, bounds.height - Math.max(0, rawTop)),
+    });
   }, [canvasContainerRef, initialCrop, stageScale, stagePosition]);
 
   const handleMouseDown = useCallback(
