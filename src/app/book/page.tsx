@@ -347,7 +347,7 @@ function BookPage() {
     const first = combo[0];
     setSelectedTableId(first.id);
     setGuestCount(String(first.guestAlloc));
-    setComment(`Merged tables for ${totalGuests} guests (1/${combo.length}) [GROUP:${groupId}]`);
+    setComment(`Összetolt asztalok, ${totalGuests} fős társaság (1/${combo.length}) [GROUP:${groupId}]`);
   };
 
   const continueComboBooking = () => {
@@ -360,7 +360,7 @@ function BookPage() {
     setSubmitted(false);
     setSelectedTableId(next.id);
     setGuestCount(String(next.guestAlloc));
-    setComment(`Merged tables for ${originalGuestCount} guests (${currentIndex}/${totalTables}) [GROUP:${comboGroupId}]`);
+    setComment(`Összetolt asztalok, ${originalGuestCount} fős társaság (${currentIndex}/${totalTables}) [GROUP:${comboGroupId}]`);
   };
 
   const handleTableSelect = (tableId: string) => {
@@ -638,7 +638,7 @@ function BookPage() {
         {pendingComboTables.length > 0 && !submitted && (
           <div className="mb-4 flex items-center gap-2 text-sm text-blue-300/80">
             <Combine className="h-4 w-4" />
-            Összetólt asztalok — még {pendingComboTables.length} asztal hátravan ez után
+            Összetolt asztalok — ezután még {pendingComboTables.length} asztal foglalása hátravan
           </div>
         )}
 
