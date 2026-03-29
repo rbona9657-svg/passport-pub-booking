@@ -45,6 +45,10 @@ export default function AdminDashboard() {
   const [approveAdminNote, setApproveAdminNote] = useState("");
   const [availableTables, setAvailableTables] = useState<AvailableTable[]>([]);
   const [tablesLoading, setTablesLoading] = useState(false);
+  // Per-card inline table reassignment
+  const [cardTableOverrides, setCardTableOverrides] = useState<Record<string, string>>({});
+  const [expandedReassign, setExpandedReassign] = useState<string | null>(null);
+  const [cardAvailableTables, setCardAvailableTables] = useState<Record<string, AvailableTable[]>>({});
   const { toast } = useToast();
 
   const fetchBookings = useCallback(async () => {
@@ -111,9 +115,43 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchCardTables = async (booking: BookingWithDetails) => {
+    try {
+      const fpRes = await fetch("/api/floor-plan");
+      if (!fpRes.ok) return;
+      const fpData = await fpRes.json();
+      const floorPlanId = fpData.id;
+      const allTables: AvailableTable[] = (fpData.tables || []).map((t: { id: string; tableNumber: string; seats: number }) => ({
+        id: t.id, tableNumber: t.tableNumber, seats: t.seats,
+      }));
+      const res = await fetch(
+        `/api/tables/availability?floorPlanId=${floorPlanId}&date=${booking.bookingDate}&arrival=${booking.arrivalTime}&departure=${booking.departureTime}`
+      );
+      if (!res.ok) return;
+      const statusMap = await res.json();
+      const currentTableId = booking.table?.id || booking.tableId;
+      const available = allTables
+        .filter((t) => (statusMap[t.id] === "available" || t.id === currentTableId) && t.seats >= booking.guestCount)
+        .sort((a, b) => a.seats - b.seats);
+      setCardAvailableTables((prev) => ({ ...prev, [booking.id]: available }));
+    } catch { /* silent */ }
+  };
+
+  const toggleReassign = (booking: BookingWithDetails) => {
+    if (expandedReassign === booking.id) {
+      setExpandedReassign(null);
+      return;
+    }
+    setExpandedReassign(booking.id);
+    if (!cardAvailableTables[booking.id]) {
+      fetchCardTables(booking);
+    }
+  };
+
   const openApproveDialog = (booking: BookingWithDetails) => {
     setApproveBooking(booking);
-    setApproveTableId(booking.table?.id || booking.tableId);
+    // Use card-level override if admin already picked a table on the card
+    setApproveTableId(cardTableOverrides[booking.id] || booking.table?.id || booking.tableId);
     setApproveAdminNote("");
     fetchAvailableTables(booking);
   };
@@ -303,16 +341,76 @@ export default function AdminDashboard() {
                         {booking.guestCount} guests
                       </div>
                       <div className="flex items-center gap-2 font-medium">
-                        Table {booking.table.tableNumber}
-                        <span className="text-xs text-muted-foreground">({booking.table.seats} seats)</span>
+                        {(() => {
+                          const overrideId = cardTableOverrides[booking.id];
+                          const overrideTable = overrideId ? (cardAvailableTables[booking.id] || []).find((t) => t.id === overrideId) : null;
+                          if (overrideTable) {
+                            return (
+                              <>
+                                <span className="line-through text-muted-foreground">T{booking.table.tableNumber}</span>
+                                <ArrowRight className="h-3 w-3 text-blue-400" />
+                                <span className="text-blue-400">T{overrideTable.tableNumber}</span>
+                                <span className="text-xs text-muted-foreground">({overrideTable.seats} seats)</span>
+                              </>
+                            );
+                          }
+                          return (
+                            <>
+                              Table {booking.table.tableNumber}
+                              <span className="text-xs text-muted-foreground">({booking.table.seats} seats)</span>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
-                    {/* Utilization Warning */}
+                    {/* Utilization Warning + Inline Reassign */}
                     {lowUtil && (
-                      <div className={`flex items-center gap-2 rounded-lg p-2 text-xs ${veryLowUtil ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"}`}>
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                        <span>{booking.guestCount}/{booking.table.seats} seats — {utilization}% utilization</span>
+                      <div className={`flex items-center justify-between gap-2 rounded-lg p-2 text-xs ${veryLowUtil ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"}`}>
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          <span>{booking.guestCount}/{booking.table.seats} seats — {utilization}%</span>
+                        </div>
+                        <button
+                          className="text-xs underline hover:no-underline"
+                          onClick={() => toggleReassign(booking)}
+                        >
+                          {expandedReassign === booking.id ? "Close" : "Reassign"}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Inline Table Reassign Dropdown */}
+                    {expandedReassign === booking.id && (
+                      <div className="rounded-lg border border-border/40 p-2.5 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                        <Label className="text-xs font-medium">Assign to different table</Label>
+                        {!cardAvailableTables[booking.id] ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading...
+                          </div>
+                        ) : (
+                          <Select
+                            value={cardTableOverrides[booking.id] || booking.table?.id || booking.tableId}
+                            onValueChange={(val) => {
+                              setCardTableOverrides((prev) => ({ ...prev, [booking.id]: val }));
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(cardAvailableTables[booking.id] || []).map((t) => {
+                                const currentId = booking.table?.id || booking.tableId;
+                                const isCurrent = t.id === currentId;
+                                return (
+                                  <SelectItem key={t.id} value={t.id} className="text-xs">
+                                    T{t.tableNumber} ({t.seats} seats){isCurrent ? " — current" : ""}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     )}
 

@@ -282,7 +282,9 @@ function BookPage() {
           bookingDate,
           arrivalTime,
           departureTime,
-          comment: comment || null,
+          comment: comboGroupId
+            ? `${comment || ""} [GROUP:${comboGroupId}]`.trim()
+            : (comment || null),
           forceSubmit,
         }),
       });
@@ -347,7 +349,7 @@ function BookPage() {
     const first = combo[0];
     setSelectedTableId(first.id);
     setGuestCount(String(first.guestAlloc));
-    setComment(`Összetolt asztalok, ${totalGuests} fős társaság (1/${combo.length}) [GROUP:${groupId}]`);
+    setComment(`Összetolt asztalok, ${totalGuests} fős társaság (1/${combo.length})`);
   };
 
   const continueComboBooking = () => {
@@ -360,7 +362,7 @@ function BookPage() {
     setSubmitted(false);
     setSelectedTableId(next.id);
     setGuestCount(String(next.guestAlloc));
-    setComment(`Összetolt asztalok, ${originalGuestCount} fős társaság (${currentIndex}/${totalTables}) [GROUP:${comboGroupId}]`);
+    setComment(`Összetolt asztalok, ${originalGuestCount} fős társaság (${currentIndex}/${totalTables})`);
   };
 
   const handleTableSelect = (tableId: string) => {
