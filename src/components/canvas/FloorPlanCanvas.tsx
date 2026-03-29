@@ -166,7 +166,8 @@ export default function FloorPlanCanvas({
       }
 
       const fitScale = containerWidth / effectiveW;
-      let canvasHeight = effectiveH * fitScale;
+      const contentHeight = effectiveH * fitScale;
+      let canvasHeight = contentHeight;
 
       // Ensure a minimum height on mobile so the floor plan isn't a thin strip
       const MIN_BOOKING_HEIGHT = 220;
@@ -174,7 +175,9 @@ export default function FloorPlanCanvas({
         canvasHeight = MIN_BOOKING_HEIGHT;
       }
 
-      const pos = { x: -effectiveX * fitScale, y: -effectiveY * fitScale };
+      // Center content vertically when canvas is taller than content
+      const yOffset = (canvasHeight - contentHeight) / 2;
+      const pos = { x: -effectiveX * fitScale, y: -effectiveY * fitScale + yOffset };
 
       setStageSize({ width: containerWidth, height: canvasHeight });
       setScale(fitScale);
