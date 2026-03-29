@@ -197,6 +197,23 @@ function BookPage() {
     return candidates[0] || null;
   })();
 
+  // Combo-fit: when no single table is big enough, compute a multi-table combo
+  const comboFit = (() => {
+    if (bestFitTable || !selectedTable || guestCountNum <= selectedTable.seats) return null;
+    const available = tables
+      .filter((t) => tableStatuses[t.id] === "available" && t.id !== selectedTableId)
+      .sort((a, b) => b.seats - a.seats);
+    const combo: Array<{ id: string; tableNumber: string; seats: number; guestAlloc: number }> = [];
+    let remaining = guestCountNum;
+    for (const t of available) {
+      if (remaining <= 0) break;
+      const alloc = Math.min(t.seats, remaining);
+      combo.push({ id: t.id, tableNumber: t.tableNumber, seats: t.seats, guestAlloc: alloc });
+      remaining -= alloc;
+    }
+    return remaining <= 0 ? combo : null;
+  })();
+
   // Check capacity when guest count or selected table changes
   useEffect(() => {
     if (selectedTable && parseInt(guestCount) > selectedTable.seats) {
@@ -500,38 +517,73 @@ function BookPage() {
           />
         </div>
 
-        {/* Capacity Warning with Best-Fit Suggestion */}
+        {/* Capacity Warning with Best-Fit / Combo Suggestion */}
         {capacityWarning && selectedTable && (
-          <Card className="mb-6 border-amber-500/40 bg-amber-500/5 animate-in slide-in-from-bottom-4 duration-300">
+          <Card className={`mb-6 animate-in slide-in-from-bottom-4 duration-300 ${comboFit ? "border-blue-500/40 bg-blue-500/5" : "border-amber-500/40 bg-amber-500/5"}`}>
             <CardContent className="py-5">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15">
-                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-full ${comboFit ? "bg-blue-500/15" : "bg-amber-500/15"}`}>
+                    {comboFit
+                      ? <Combine className="h-5 w-5 text-blue-400" />
+                      : <AlertTriangle className="h-5 w-5 text-amber-500" />}
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-amber-200">Nincs el&eacute;g f&eacute;r&odblac;hely</h3>
-                  <p className="text-sm text-amber-300/80 mt-1">{capacityWarning}</p>
                   {bestFitTable ? (
-                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
-                      <p className="text-sm text-green-400">
-                        Javaslat: Asztal {bestFitTable.tableNumber} ({bestFitTable.seats} f\u0151s) &mdash; szabad!
+                    <>
+                      <h3 className="font-semibold text-amber-200">Nincs el&eacute;g f&eacute;r&odblac;hely</h3>
+                      <p className="text-sm text-amber-300/80 mt-1">{capacityWarning}</p>
+                      <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                        <p className="text-sm text-green-400">
+                          Javaslat: Asztal {bestFitTable.tableNumber} ({bestFitTable.seats} f&odblac;s) &mdash; szabad!
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-green-500/40 text-green-300 hover:bg-green-500/10"
+                          onClick={() => handleTableSelect(bestFitTable.id)}
+                        >
+                          <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                          V&aacute;lt&aacute;s
+                        </Button>
+                      </div>
+                    </>
+                  ) : comboFit ? (
+                    <>
+                      <h3 className="font-semibold text-blue-200">
+                        Ne haragudj, egyetlen asztalunk sem el&eacute;g nagy {guestCount} f&odblac;re
+                      </h3>
+                      <p className="text-sm text-blue-300/80 mt-1">
+                        Javasoljuk, hogy {comboFit.length} k&uuml;l&ouml;n foglal&aacute;st k&uuml;ldj be &mdash; a szem&eacute;lyzet &ouml;sszetolja az asztalokat:
                       </p>
+                      <div className="mt-3 space-y-1.5">
+                        {comboFit.map((t, i) => (
+                          <div key={t.id} className="text-sm text-blue-300/90 flex items-center gap-2">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium">{i + 1}</span>
+                            Asztal {t.tableNumber} &mdash; {t.guestAlloc}/{t.seats} f&odblac;
+                          </div>
+                        ))}
+                        <div className="text-sm text-blue-200 font-medium mt-2">
+                          &Ouml;sszesen: {comboFit.reduce((sum, t) => sum + t.guestAlloc, 0)} f&eacute;r&odblac;hely {guestCount} f&odblac;re
+                        </div>
+                      </div>
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="border-green-500/40 text-green-300 hover:bg-green-500/10"
-                        onClick={() => handleTableSelect(bestFitTable.id)}
+                        className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => startComboBooking(comboFit)}
                       >
-                        <ArrowRight className="h-3.5 w-3.5 mr-1" />
-                        V&aacute;lt&aacute;s
+                        <ArrowRight className="h-4 w-4 mr-1.5" />
+                        Foglal&aacute;s ind&iacute;t&aacute;sa ({comboFit.length} asztal)
                       </Button>
-                    </div>
+                    </>
                   ) : (
-                    <p className="text-sm text-amber-300/60 mt-2">
-                      Nincs el&eacute;g nagy szabad asztal. Pr&oacute;b&aacute;lj t&ouml;bb asztalt foglalni, vagy v&aacute;lassz m&aacute;s id\u0151pontot.
-                    </p>
+                    <>
+                      <h3 className="font-semibold text-amber-200">Nincs el&eacute;g f&eacute;r&odblac;hely</h3>
+                      <p className="text-sm text-amber-300/60 mt-1">
+                        Sajnos nincs el&eacute;g szabad asztal {guestCount} f&odblac; sz&aacute;m&aacute;ra ebben az id&odblac;pontban. Pr&oacute;b&aacute;lj m&aacute;s d&aacute;tumot vagy id&odblac;pontot.
+                      </p>
+                    </>
                   )}
                 </div>
               </div>
