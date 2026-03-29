@@ -265,7 +265,7 @@ function BookPage() {
     }
   }, [guestCount, tables, tableStatuses, selectedTable, pendingComboTables.length]);
 
-  const submitBooking = async (forceSubmit = false) => {
+  const submitBooking = async () => {
     if (!selectedTableId || capacityWarning) return;
 
     setLoading(true);
@@ -285,7 +285,6 @@ function BookPage() {
           comment: comboGroupId
             ? `${comment || ""} [GROUP:${comboGroupId}]`.trim()
             : (comment || null),
-          forceSubmit,
         }),
       });
 
@@ -330,11 +329,7 @@ function BookPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await submitBooking(false);
-  };
-
-  const handleForceSubmit = async () => {
-    await submitBooking(true);
+    await submitBooking();
   };
 
   const startComboBooking = (combo: NonNullable<typeof largePartyCombo>) => {
@@ -676,26 +671,18 @@ function BookPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
-                      onClick={() => window.location.href = "/my-bookings"}
-                    >
-                      <ClipboardList className="h-4 w-4 mr-1.5" />
-                      Foglalásaim kezelése
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-amber-600 hover:bg-amber-700 text-white"
-                      onClick={handleForceSubmit}
-                      disabled={loading}
-                    >
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-                      Mégis foglalok másik asztalt
-                    </Button>
-                  </div>
+                  <p className="text-sm text-amber-300/60 mt-3">
+                    Ha másik asztalt szeretnél erre a napra, előbb töröld a meglévő foglalásod.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
+                    onClick={() => window.location.href = "/my-bookings"}
+                  >
+                    <ClipboardList className="h-4 w-4 mr-1.5" />
+                    Foglalásaim kezelése
+                  </Button>
                 </div>
               </div>
             </CardContent>

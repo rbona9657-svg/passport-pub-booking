@@ -115,8 +115,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for existing bookings with same email on the same date
-    const forceSubmit = body.forceSubmit === true;
-    if (!forceSubmit && guestEmail) {
+    if (guestEmail) {
       const existingBookings = await getExistingBookingsForEmail(guestEmail, bookingDate);
       if (existingBookings.length > 0) {
         // Check for time overlaps to provide stronger warning
