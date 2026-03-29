@@ -145,23 +145,24 @@ export default function FloorPlanCanvas({
       maxX += PADDING;
       maxY += PADDING;
 
-      // Use crop only if it's tighter than the bounding box (admin intentionally zoomed in).
-      // Otherwise fall back to the bounding box so content fills the screen on mobile.
-      let effectiveX = minX;
-      let effectiveY = minY;
-      let effectiveW = maxX - minX;
-      let effectiveH = maxY - minY;
+      // Use the admin-defined crop when available — it reflects the intended
+      // visible area regardless of how much content it contains.
+      // Fall back to the content bounding box only when no crop is set.
+      let effectiveX: number;
+      let effectiveY: number;
+      let effectiveW: number;
+      let effectiveH: number;
 
       if (crop && crop.width > 0 && crop.height > 0) {
-        const cropArea = crop.width * crop.height;
-        const bboxArea = effectiveW * effectiveH;
-        // Only use the crop if it's smaller than the bounding box (zoom-in)
-        if (cropArea <= bboxArea * 1.5) {
-          effectiveX = crop.x;
-          effectiveY = crop.y;
-          effectiveW = crop.width;
-          effectiveH = crop.height;
-        }
+        effectiveX = crop.x;
+        effectiveY = crop.y;
+        effectiveW = crop.width;
+        effectiveH = crop.height;
+      } else {
+        effectiveX = minX;
+        effectiveY = minY;
+        effectiveW = maxX - minX;
+        effectiveH = maxY - minY;
       }
 
       const fitScale = containerWidth / effectiveW;
