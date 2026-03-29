@@ -218,7 +218,7 @@ function BookPage() {
   useEffect(() => {
     if (selectedTable && parseInt(guestCount) > selectedTable.seats) {
       setCapacityWarning(
-        `Az asztal ${selectedTable.tableNumber} csak ${selectedTable.seats} f\u0151s, de neked ${guestCount} f\u0151re van sz\u00fcks\u00e9ged.`
+        `Az asztal ${selectedTable.tableNumber} csak ${selectedTable.seats} fős, de neked ${guestCount} főre van szükséged.`
       );
     } else {
       setCapacityWarning(null);
@@ -257,7 +257,7 @@ function BookPage() {
     if (remaining > 0) {
       // Not enough tables at all
       setLargePartyCombo(null);
-      setCapacityWarning(`Sajnos nincs el\u00e9g szabad asztal ${count} f\u0151 sz\u00e1m\u00e1ra ebben az id\u0151pontban. Pr\u00f3b\u00e1lj m\u00e1s d\u00e1tumot vagy id\u0151pontot.`);
+      setCapacityWarning(`Sajnos nincs elég szabad asztal ${count} fő számára ebben az időpontban. Próbálj más dátumot vagy időpontot.`);
     } else {
       setLargePartyCombo(combo);
       // Clear the single-table capacity warning since we're showing combo
@@ -290,7 +290,7 @@ function BookPage() {
       if (res.ok) {
         setSubmitted(true);
         setDuplicateWarning(null);
-        toast({ title: "Foglal\u00e1s elk\u00fcldve!", description: "Ellen\u0151rizd az e-mailed a r\u00e9szletekhez." });
+        toast({ title: "Foglalás elküldve!", description: "Ellenőrizd az e-mailed a részletekhez." });
         const statusRes = await fetch(
           `/api/tables/availability?floorPlanId=${floorPlanId}&date=${bookingDate}&arrival=${arrivalTime}&departure=${departureTime}`
         );
@@ -314,13 +314,13 @@ function BookPage() {
           errorMsg = Object.values(fields).flat().join(". ");
         }
         toast({
-          title: "Foglal\u00e1s sikertelen",
+          title: "Foglalás sikertelen",
           description: errorMsg,
           variant: "destructive",
         });
       }
     } catch {
-      toast({ title: "Hiba", description: "Valami hiba t\u00f6rt\u00e9nt, pr\u00f3b\u00e1ld \u00fajra", variant: "destructive" });
+      toast({ title: "Hiba", description: "Valami hiba történt, próbáld újra", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -377,9 +377,9 @@ function BookPage() {
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Asztalfoglal&aacute;s</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Asztalfoglalás</h1>
           <p className="text-muted-foreground mt-1">
-            V&aacute;laszd ki a d&aacute;tumot, id&odblac;pontot, &eacute;s v&aacute;lassz asztalt az alaprajzr&oacute;l
+            Válaszd ki a dátumot, időpontot, és válassz asztalt az alaprajzról
           </p>
         </div>
 
@@ -390,7 +390,7 @@ function BookPage() {
               <div className="flex-1 space-y-2">
                 <Label className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4" />
-                  D&aacute;tum
+                  Dátum
                 </Label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -401,7 +401,7 @@ function BookPage() {
                       <CalendarDays className="mr-2 h-4 w-4" />
                       {bookingDate
                         ? format(parse(bookingDate, "yyyy-MM-dd", new Date()), "PPP")
-                        : "V&aacute;lassz d&aacute;tumot"}
+                        : "Válassz dátumot"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -420,7 +420,7 @@ function BookPage() {
               <div className="flex-1 space-y-2">
                 <Label className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  &Eacute;rkez&eacute;s
+                  Érkezés
                 </Label>
                 <Select value={arrivalTime} onValueChange={handleArrivalChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -434,7 +434,7 @@ function BookPage() {
               <div className="flex-1 space-y-2">
                 <Label className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  T&aacute;voz&aacute;s
+                  Távozás
                 </Label>
                 <Select value={departureTime} onValueChange={handleDepartureChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -448,7 +448,7 @@ function BookPage() {
               <div className="flex-1 space-y-2">
                 <Label className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  L&eacute;tsz&aacute;m
+                  Létszám
                 </Label>
                 <Input
                   type="number"
@@ -468,13 +468,13 @@ function BookPage() {
             <span className="h-3 w-3 rounded-full bg-green-500" /> Szabad
           </span>
           <span className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full bg-yellow-500" /> F&uuml;gg&odblac;ben
+            <span className="h-3 w-3 rounded-full bg-yellow-500" /> Függőben
           </span>
           <span className="flex items-center gap-2">
             <span className="h-3 w-3 rounded-full bg-red-500" /> Foglalt
           </span>
           <span className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full bg-blue-500" /> Kiv&aacute;lasztva
+            <span className="h-3 w-3 rounded-full bg-blue-500" /> Kiválasztva
           </span>
         </div>
 
@@ -489,14 +489,14 @@ function BookPage() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-blue-200">Nagy t&aacute;rsas&aacute;g? Nem probl&eacute;ma!</h3>
+                  <h3 className="font-semibold text-blue-200">Nagy társaság? Nem probléma!</h3>
                   <p className="text-sm text-blue-300/80 mt-1">
-                    {guestCountNum} f&odblac;h&ouml;z {tablesNeeded} asztalt aj&aacute;nlunk.
-                    A legnagyobb asztalunk {maxTableCapacity} f&odblac;s. Foglalj {tablesNeeded} k&uuml;l&ouml;n asztalt,
-                    &eacute;s a szem&eacute;lyzet &ouml;sszetolja &odblac;ket &eacute;rkez&eacute;s el&odblac;tt, hogy egy&uuml;tt &uuml;lhessetek.
+                    {guestCountNum} főhöz {tablesNeeded} asztalt ajánlunk.
+                    A legnagyobb asztalunk {maxTableCapacity} fős. Foglalj {tablesNeeded} külön asztalt,
+                    és a személyzet összetolja őket érkezés előtt, hogy együtt ülhessetek.
                   </p>
                   <p className="text-xs text-blue-300/60 mt-2">
-                    Tipp: &Iacute;rd be az &quot;&ouml;sszet&oacute;lt asztalok&quot; megjegyz&eacute;st minden foglal&aacute;sn&aacute;l.
+                    Tipp: Írd be az {'"'}összetolt asztalok{'"'} megjegyzést minden foglalásnál.
                   </p>
                 </div>
               </div>
@@ -532,11 +532,11 @@ function BookPage() {
                 <div className="flex-1">
                   {bestFitTable ? (
                     <>
-                      <h3 className="font-semibold text-amber-200">Nincs el&eacute;g f&eacute;r&odblac;hely</h3>
+                      <h3 className="font-semibold text-amber-200">Nincs elég férőhely</h3>
                       <p className="text-sm text-amber-300/80 mt-1">{capacityWarning}</p>
                       <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
                         <p className="text-sm text-green-400">
-                          Javaslat: Asztal {bestFitTable.tableNumber} ({bestFitTable.seats} f&odblac;s) &mdash; szabad!
+                          Javaslat: Asztal {bestFitTable.tableNumber} ({bestFitTable.seats} fős) — szabad!
                         </p>
                         <Button
                           size="sm"
@@ -545,27 +545,27 @@ function BookPage() {
                           onClick={() => handleTableSelect(bestFitTable.id)}
                         >
                           <ArrowRight className="h-3.5 w-3.5 mr-1" />
-                          V&aacute;lt&aacute;s
+                          Váltás
                         </Button>
                       </div>
                     </>
                   ) : comboFit ? (
                     <>
                       <h3 className="font-semibold text-blue-200">
-                        Ne haragudj, egyetlen asztalunk sem el&eacute;g nagy {guestCount} f&odblac;re
+                        Ne haragudj, egyetlen asztalunk sem elég nagy {guestCount} főre
                       </h3>
                       <p className="text-sm text-blue-300/80 mt-1">
-                        Javasoljuk, hogy {comboFit.length} k&uuml;l&ouml;n foglal&aacute;st k&uuml;ldj be &mdash; a szem&eacute;lyzet &ouml;sszetolja az asztalokat:
+                        Javasoljuk, hogy {comboFit.length} külön foglalást küldj be — a személyzet összetolja az asztalokat:
                       </p>
                       <div className="mt-3 space-y-1.5">
                         {comboFit.map((t, i) => (
                           <div key={t.id} className="text-sm text-blue-300/90 flex items-center gap-2">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium">{i + 1}</span>
-                            Asztal {t.tableNumber} &mdash; {t.guestAlloc}/{t.seats} f&odblac;
+                            Asztal {t.tableNumber} — {t.guestAlloc}/{t.seats} fő
                           </div>
                         ))}
                         <div className="text-sm text-blue-200 font-medium mt-2">
-                          &Ouml;sszesen: {comboFit.reduce((sum, t) => sum + t.guestAlloc, 0)} f&eacute;r&odblac;hely {guestCount} f&odblac;re
+                          Összesen: {comboFit.reduce((sum, t) => sum + t.guestAlloc, 0)} férőhely {guestCount} főre
                         </div>
                       </div>
                       <Button
@@ -574,14 +574,14 @@ function BookPage() {
                         onClick={() => startComboBooking(comboFit)}
                       >
                         <ArrowRight className="h-4 w-4 mr-1.5" />
-                        Foglal&aacute;s ind&iacute;t&aacute;sa ({comboFit.length} asztal)
+                        Foglalás indítása ({comboFit.length} asztal)
                       </Button>
                     </>
                   ) : (
                     <>
-                      <h3 className="font-semibold text-amber-200">Nincs el&eacute;g f&eacute;r&odblac;hely</h3>
+                      <h3 className="font-semibold text-amber-200">Nincs elég férőhely</h3>
                       <p className="text-sm text-amber-300/60 mt-1">
-                        Sajnos nincs el&eacute;g szabad asztal {guestCount} f&odblac; sz&aacute;m&aacute;ra ebben az id&odblac;pontban. Pr&oacute;b&aacute;lj m&aacute;s d&aacute;tumot vagy id&odblac;pontot.
+                        Sajnos nincs elég szabad asztal {guestCount} fő számára ebben az időpontban. Próbálj más dátumot vagy időpontot.
                       </p>
                     </>
                   )}
@@ -602,23 +602,23 @@ function BookPage() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-blue-200">{guestCount} f&odblac;? &Ouml;sszetoljuk az asztalokat!</h3>
+                  <h3 className="font-semibold text-blue-200">{guestCount} fő? Összetoljuk az asztalokat!</h3>
                   <p className="text-sm text-blue-300/80 mt-1">
-                    Egyetlen asztal sem el&eacute;g nagy, de a szem&eacute;lyzet &ouml;sszetolja az asztalokat. {largePartyCombo.length} asztalt aj&aacute;nlunk:
+                    Egyetlen asztal sem elég nagy, de a személyzet összetolja az asztalokat. {largePartyCombo.length} asztalt ajánlunk:
                   </p>
                   <div className="mt-3 space-y-1.5">
                     {largePartyCombo.map((t, i) => (
                       <div key={t.id} className="text-sm text-blue-300/90 flex items-center gap-2">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/20 text-xs font-medium">{i + 1}</span>
-                        Asztal {t.tableNumber} &mdash; {t.guestAlloc}/{t.seats} f&odblac;
+                        Asztal {t.tableNumber} — {t.guestAlloc}/{t.seats} fő
                       </div>
                     ))}
                     <div className="text-sm text-blue-200 font-medium mt-2">
-                      &Ouml;sszesen: {largePartyCombo.reduce((sum, t) => sum + t.guestAlloc, 0)} f&eacute;r&odblac;hely {guestCount} f&odblac;re
+                      Összesen: {largePartyCombo.reduce((sum, t) => sum + t.guestAlloc, 0)} férőhely {guestCount} főre
                     </div>
                   </div>
                   <p className="text-xs text-blue-300/60 mt-3">
-                    {largePartyCombo.length} k&uuml;l&ouml;n foglal&aacute;st k&uuml;ldesz &mdash; v&eacute;gigvezet&uuml;nk rajtuk. A neved &eacute;s e-mailed automatikusan kit&ouml;lt&odblac;dik.
+                    {largePartyCombo.length} külön foglalást küldesz — végigvezetünk rajtuk. A neved és e-mailed automatikusan kitöltődik.
                   </p>
                   <Button
                     size="sm"
@@ -626,7 +626,7 @@ function BookPage() {
                     onClick={() => startComboBooking(largePartyCombo)}
                   >
                     <ArrowRight className="h-4 w-4 mr-1.5" />
-                    Foglal&aacute;s ind&iacute;t&aacute;sa ({largePartyCombo.length} asztal)
+                    Foglalás indítása ({largePartyCombo.length} asztal)
                   </Button>
                 </div>
               </div>
@@ -638,7 +638,7 @@ function BookPage() {
         {pendingComboTables.length > 0 && !submitted && (
           <div className="mb-4 flex items-center gap-2 text-sm text-blue-300/80">
             <Combine className="h-4 w-4" />
-            &Ouml;sszet&oacute;lt asztalok &mdash; m&eacute;g {pendingComboTables.length} asztal h&aacute;travan ez ut&aacute;n
+            Összetólt asztalok — még {pendingComboTables.length} asztal hátravan ez után
           </div>
         )}
 
@@ -655,21 +655,21 @@ function BookPage() {
                 <div className="flex-1">
                   <h3 className="font-semibold text-amber-200">
                     {duplicateWarning.hasTimeOverlap
-                      ? "Id\u0151\u00fctk\u00f6z\u00e9s a megl\u00e9v\u0151 foglal\u00e1soddal!"
-                      : "M\u00e1r van foglal\u00e1sod erre a napra!"}
+                      ? "Időütközés a meglévő foglalásoddal!"
+                      : "Már van foglalásod erre a napra!"}
                   </h3>
                   <p className="text-sm text-amber-300/80 mt-1">
                     {duplicateWarning.hasTimeOverlap
-                      ? "Az \u00faj foglal\u00e1sod \u00e1tfed egy megl\u00e9v\u0151vel:"
-                      : `${duplicateWarning.existingBookings.length} megl\u00e9v\u0151 foglal\u00e1st tal\u00e1ltunk (${duplicateWarning.bookingDate}):`}
+                      ? "Az új foglalásod átfed egy meglévővel:"
+                      : `${duplicateWarning.existingBookings.length} meglévő foglalást találtunk (${duplicateWarning.bookingDate}):`}
                   </p>
                   <div className="mt-2 space-y-1">
                     {duplicateWarning.existingBookings.map((b) => (
                       <div key={b.id} className="text-sm text-amber-300/90 flex items-center gap-2">
                         <Clock className="h-3.5 w-3.5" />
-                        {b.arrivalTime}–{b.departureTime} &middot; Table {b.tableNumber} ({b.guestCount} guests) &middot;{" "}
+                        {b.arrivalTime}–{b.departureTime} · Asztal {b.tableNumber} ({b.guestCount} fő) ·{" "}
                         <span className={b.status === "approved" ? "text-green-400" : "text-yellow-400"}>
-                          {b.status === "approved" ? "J\u00f3v\u00e1hagyva" : "F\u00fcgg\u0151ben"}
+                          {b.status === "approved" ? "Jóváhagyva" : "Függőben"}
                         </span>
                       </div>
                     ))}
@@ -682,7 +682,7 @@ function BookPage() {
                       onClick={() => window.location.href = "/my-bookings"}
                     >
                       <ClipboardList className="h-4 w-4 mr-1.5" />
-                      Foglal&aacute;saim kezel&eacute;se
+                      Foglalásaim kezelése
                     </Button>
                     <Button
                       size="sm"
@@ -691,7 +691,7 @@ function BookPage() {
                       disabled={loading}
                     >
                       {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-                      M&eacute;gis foglalok m&aacute;sik asztalt
+                      Mégis foglalok másik asztalt
                     </Button>
                   </div>
                 </div>
@@ -706,7 +706,7 @@ function BookPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <MapPin className="h-4 w-4 text-primary" />
-                Asztal {selectedTable.tableNumber} ({selectedTable.seats} f\u0151s)
+                Asztal {selectedTable.tableNumber} ({selectedTable.seats} fős)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -715,12 +715,12 @@ function BookPage() {
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <User className="h-4 w-4" />
-                      N&eacute;v
+                      Név
                     </Label>
                     <Input
                       value={reservationName}
                       onChange={(e) => setReservationName(e.target.value)}
-                      placeholder="Foglal&aacute;s neve"
+                      placeholder="Foglalás neve"
                       required
                       minLength={2}
                     />
@@ -728,7 +728,7 @@ function BookPage() {
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <Mail className="h-4 w-4" />
-                      E-mail c&iacute;m
+                      E-mail cím
                     </Label>
                     <Input
                       type="email"
@@ -737,14 +737,14 @@ function BookPage() {
                       placeholder="pelda@email.com"
                       required
                     />
-                    <p className="text-xs text-muted-foreground">A visszaigazol&aacute;st ide k&uuml;ldj&uuml;k</p>
+                    <p className="text-xs text-muted-foreground">A visszaigazolást ide küldjük</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      L&eacute;tsz&aacute;m
+                      Létszám
                     </Label>
                     <Input
                       type="number"
@@ -754,17 +754,17 @@ function BookPage() {
                       onChange={(e) => setGuestCount(e.target.value)}
                       required
                     />
-                    <p className="text-xs text-muted-foreground">Ez az asztal {selectedTable.seats} f\u0151s</p>
+                    <p className="text-xs text-muted-foreground">Ez az asztal {selectedTable.seats} fős</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <MessageSquare className="h-4 w-4" />
-                      Megjegyz&eacute;s (opcion&aacute;lis)
+                      Megjegyzés (opcionális)
                     </Label>
                     <Textarea
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
-                      placeholder="Sz&uuml;let&eacute;snap, &eacute;tel&eacute;rz&eacute;kenys&eacute;g, stb."
+                      placeholder="Születésnap, ételérzékenység, stb."
                       rows={2}
                       maxLength={500}
                     />
@@ -778,7 +778,7 @@ function BookPage() {
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
-                  Foglal&aacute;s k&uuml;ld&eacute;se
+                  Foglalás küldése
                 </Button>
               </form>
             </CardContent>
@@ -790,9 +790,9 @@ function BookPage() {
             <CardContent className="py-8 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/booking-success.svg" alt="" className="mx-auto mb-4 h-24 w-24" />
-              <h3 className="text-lg font-semibold">Foglal&aacute;s elk&uuml;ldve!</h3>
+              <h3 className="text-lg font-semibold">Foglalás elküldve!</h3>
               <p className="text-muted-foreground mt-2">
-                Megkaptuk a foglal&aacute;si k&eacute;relmed. A visszaigazol&aacute;st a <strong className="text-foreground">{guestEmail}</strong> c&iacute;mre k&uuml;ldj&uuml;k j&oacute;v&aacute;hagy&aacute;s ut&aacute;n.
+                Megkaptuk a foglalási kérelmed. A visszaigazolást a <strong className="text-foreground">{guestEmail}</strong> címre küldjük jóváhagyás után.
               </p>
 
               {/* Combo continuation CTA */}
@@ -800,7 +800,7 @@ function BookPage() {
                 <div className="mt-6 space-y-3">
                   <div className="inline-flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 px-4 py-2 text-sm text-blue-300">
                     <Combine className="h-4 w-4" />
-                    M&eacute;g {pendingComboTables.length} asztal h&aacute;travan a {originalGuestCount} f&odblac;s t&aacute;rsas&aacute;godnak!
+                    Még {pendingComboTables.length} asztal hátravan a {originalGuestCount} fős társaságodnak!
                   </div>
                   <div>
                     <Button
@@ -808,7 +808,7 @@ function BookPage() {
                       onClick={continueComboBooking}
                     >
                       <ArrowRight className="h-4 w-4 mr-2" />
-                      Tov&aacute;bb: Asztal {pendingComboTables[0].tableNumber} ({pendingComboTables[0].guestAlloc} f&odblac;)
+                      Tovább: Asztal {pendingComboTables[0].tableNumber} ({pendingComboTables[0].guestAlloc} fő)
                     </Button>
                   </div>
                 </div>
@@ -827,7 +827,7 @@ function BookPage() {
                       setComboGroupId(null);
                     }}
                   >
-                    M&aacute;sik asztal foglal&aacute;sa
+                    Másik asztal foglalása
                   </Button>
                 </div>
               )}
