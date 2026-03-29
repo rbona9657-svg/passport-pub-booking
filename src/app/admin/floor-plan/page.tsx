@@ -174,6 +174,34 @@ export default function FloorPlanEditor() {
     }
   };
 
+  // Delete selected table or visual element
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedEditorId) return;
+    const isTable = tables.some((t) => t.id === selectedEditorId);
+    if (isTable) {
+      setTables((prev) => prev.filter((t) => t.id !== selectedEditorId));
+    } else {
+      setElements((prev) => prev.filter((e) => e.id !== selectedEditorId));
+    }
+    setSelectedEditorId(null);
+  }, [selectedEditorId, tables]);
+
+  // Keyboard shortcut: Delete / Backspace to remove selected item
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        // Don't delete if user is typing in an input
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        if (!selectedEditorId) return;
+        e.preventDefault();
+        handleDeleteSelected();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedEditorId, handleDeleteSelected]);
+
   // Copy size from selected object
   const handleCopySize = useCallback(() => {
     if (!selectedEditorId) return;
@@ -266,6 +294,7 @@ export default function FloorPlanEditor() {
             const controls = el && (el as unknown as Record<string, unknown>).__canvasControls as Record<string, () => void> | undefined;
             controls?.resetZoom?.();
           }}
+          onDelete={handleDeleteSelected}
           onCopySize={handleCopySize}
           onPasteSize={handlePasteSize}
           hasCopiedSize={!!copiedSize}

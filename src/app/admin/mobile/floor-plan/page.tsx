@@ -28,6 +28,7 @@ import {
   Copy,
   ClipboardPaste,
   Crop,
+  Trash2,
 } from "lucide-react";
 import type { PubTable, VisualElement } from "@/types";
 import type { ViewportCrop } from "@/components/canvas/FloorPlanCanvas";
@@ -190,6 +191,18 @@ export default function MobileFloorPlanPage() {
     }
   };
 
+  // Delete selected table or visual element
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedEditorId) return;
+    const isTable = tables.some((t) => t.id === selectedEditorId);
+    if (isTable) {
+      setTables((prev) => prev.filter((t) => t.id !== selectedEditorId));
+    } else {
+      setElements((prev) => prev.filter((e) => e.id !== selectedEditorId));
+    }
+    setSelectedEditorId(null);
+  }, [selectedEditorId, tables]);
+
   const handleCopySize = () => {
     if (!selectedEditorId) return;
     const t = tables.find((t) => t.id === selectedEditorId);
@@ -306,6 +319,15 @@ export default function MobileFloorPlanPage() {
           >
             <ClipboardPaste className="h-3.5 w-3.5 mr-1" />
             Paste
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-8 px-2 text-xs"
+            onClick={handleDeleteSelected}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1" />
+            Delete
           </Button>
         </div>
       )}

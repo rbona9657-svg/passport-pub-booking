@@ -32,6 +32,7 @@ import {
   Tag,
   Copy,
   ClipboardPaste,
+  Trash2,
 } from "lucide-react";
 
 interface CanvasToolbarProps {
@@ -41,6 +42,7 @@ interface CanvasToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
+  onDelete?: () => void;
   onCopySize?: () => void;
   onPasteSize?: () => void;
   hasCopiedSize?: boolean;
@@ -82,6 +84,7 @@ export default function CanvasToolbar({
   onZoomIn,
   onZoomOut,
   onResetZoom,
+  onDelete,
   onCopySize,
   onPasteSize,
   hasCopiedSize = false,
@@ -173,7 +176,16 @@ export default function CanvasToolbar({
         />
       )}
 
-      {(onCopySize || onPasteSize) && <div className="mx-1 h-px bg-border" />}
+      {onDelete && (
+        <ToolbarButton
+          icon={Trash2}
+          label="Delete Selected"
+          onClick={onDelete}
+          disabled={!hasSelection}
+        />
+      )}
+
+      {(onCopySize || onPasteSize || onDelete) && <div className="mx-1 h-px bg-border" />}
 
       {/* Zoom controls */}
       <ToolbarButton icon={ZoomIn} label="Zoom In" onClick={onZoomIn} />
