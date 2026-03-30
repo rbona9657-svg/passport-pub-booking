@@ -133,6 +133,7 @@ export default function FloorPlanCanvas({
         setScale(fitScale);
         setPosition({ x: 0, y: 0 });
         initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
+        sizingDoneRef.current = true;
         return;
       }
 
@@ -192,9 +193,11 @@ export default function FloorPlanCanvas({
     []
   );
 
-  // Booking mode: robust sizing with multiple retry strategies to handle
-  // iframe timing issues (especially iOS Safari cold loads where the container
-  // may not have its final width until several frames after mount).
+  // Booking mode: robust sizing that keeps retrying until the container is
+  // laid out and sizing succeeds. Uses a rAF polling loop (up to ~2s) plus
+  // setTimeout fallbacks to handle all iframe timing scenarios, including
+  // iOS Safari cold loads where the container may report zero width for
+  // many frames after mount.
   useEffect(() => {
     if (mode !== "booking") return;
     // Don't size until we have actual floor plan data
@@ -202,35 +205,43 @@ export default function FloorPlanCanvas({
 
     sizingDoneRef.current = false;
     let cancelled = false;
-    let raf1 = 0;
-    let raf2 = 0;
-    let timer = 0;
+    let rafId = 0;
+    let frameCount = 0;
+    const MAX_RAF_FRAMES = 120; // ~2 seconds of polling at 60fps
 
-    const attemptSizing = () => {
-      if (cancelled || sizingDoneRef.current) return;
-      if (!containerRef.current) return;
+    const attemptSizing = (): boolean => {
+      if (cancelled || sizingDoneRef.current) return true;
+      if (!containerRef.current) return false;
       const containerWidth = containerRef.current.getBoundingClientRect().width;
-      if (containerWidth < 50) return;
+      if (containerWidth < 50) return false;
       applyBookingSize(containerWidth, viewportCrop, tables, visualElements);
+      return sizingDoneRef.current;
     };
 
-    // Strategy 1: double rAF — waits 2 frames for layout to settle
-    raf1 = requestAnimationFrame(() => {
-      if (cancelled) return;
-      raf2 = requestAnimationFrame(() => {
-        attemptSizing();
-        // Strategy 2: fallback timeout in case rAFs fired too early (iframe cold load)
-        if (!sizingDoneRef.current && !cancelled) {
-          timer = window.setTimeout(attemptSizing, 300);
-        }
-      });
-    });
+    // Strategy 1: rAF polling — keeps trying every frame until container has width
+    const pollFrame = () => {
+      if (cancelled || sizingDoneRef.current) return;
+      frameCount++;
+      if (attemptSizing()) return;
+      if (frameCount < MAX_RAF_FRAMES) {
+        rafId = requestAnimationFrame(pollFrame);
+      }
+    };
+    rafId = requestAnimationFrame(pollFrame);
+
+    // Strategy 2: setTimeout fallbacks at key intervals (in case rAF is throttled
+    // in background tabs or hidden iframes on iOS)
+    const timers = [
+      window.setTimeout(attemptSizing, 100),
+      window.setTimeout(attemptSizing, 500),
+      window.setTimeout(attemptSizing, 1000),
+      window.setTimeout(attemptSizing, 2000),
+    ];
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-      clearTimeout(timer);
+      cancelAnimationFrame(rafId);
+      timers.forEach(clearTimeout);
     };
   }, [mode, tables, visualElements, viewportCrop, applyBookingSize]);
 
