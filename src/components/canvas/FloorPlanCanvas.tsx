@@ -64,6 +64,9 @@ export default function FloorPlanCanvas({
   const [isMobile, setIsMobile] = useState(false);
   const initialFitRef = useRef<{ scale: number; position: { x: number; y: number } } | null>(null);
 
+  // Track whether booking sizing has been applied successfully
+  const sizingDoneRef = useRef(false);
+
   // Keep viewportCrop in a ref so the sizing callback always reads the latest value
   const viewportCropRef = useRef(viewportCrop);
   viewportCropRef.current = viewportCrop;
@@ -96,6 +99,7 @@ export default function FloorPlanCanvas({
       const height = Math.max(minH, Math.min(maxH, window.innerHeight - 200));
       setStageSize({ width: containerWidth, height });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- applyBookingSize is stable ([] deps)
   }, [mode]);
 
   // Extracted sizing logic for booking mode so it can be called from both
@@ -183,28 +187,56 @@ export default function FloorPlanCanvas({
       setScale(fitScale);
       setPosition(pos);
       initialFitRef.current = { scale: fitScale, position: pos };
+      sizingDoneRef.current = true;
     },
     []
   );
 
-  // Booking mode: recalculate sizing using props directly (not refs) to avoid
-  // timing issues in iframes where ref updates may not be visible to stale callbacks.
-  // Uses rAF to ensure the container layout has settled (critical in iframes).
+  // Booking mode: robust sizing with multiple retry strategies to handle
+  // iframe timing issues (especially iOS Safari cold loads where the container
+  // may not have its final width until several frames after mount).
   useEffect(() => {
     if (mode !== "booking") return;
     // Don't size until we have actual floor plan data
     if (tables.length === 0 && visualElements.length === 0 && !viewportCrop) return;
 
-    const raf = requestAnimationFrame(() => {
+    sizingDoneRef.current = false;
+    let cancelled = false;
+    let raf1 = 0;
+    let raf2 = 0;
+    let timer = 0;
+
+    const attemptSizing = () => {
+      if (cancelled || sizingDoneRef.current) return;
       if (!containerRef.current) return;
       const containerWidth = containerRef.current.getBoundingClientRect().width;
       if (containerWidth < 50) return;
       applyBookingSize(containerWidth, viewportCrop, tables, visualElements);
+    };
+
+    // Strategy 1: double rAF — waits 2 frames for layout to settle
+    raf1 = requestAnimationFrame(() => {
+      if (cancelled) return;
+      raf2 = requestAnimationFrame(() => {
+        attemptSizing();
+        // Strategy 2: fallback timeout in case rAFs fired too early (iframe cold load)
+        if (!sizingDoneRef.current && !cancelled) {
+          timer = window.setTimeout(attemptSizing, 300);
+        }
+      });
     });
-    return () => cancelAnimationFrame(raf);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      clearTimeout(timer);
+    };
   }, [mode, tables, visualElements, viewportCrop, applyBookingSize]);
 
-  // ResizeObserver for container width changes
+  // ResizeObserver for container width changes — also acts as a safety net
+  // for booking mode: if sizing hasn't been done yet (e.g. container was
+  // initially zero-width in an iframe), this catches the first real resize.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -440,6 +472,10 @@ export default function FloorPlanCanvas({
   const isEditor = mode === "editor";
   const bgFill = isBooking ? "#1e293b" : "#fafafa";
 
+  // Hide canvas in booking mode until sizing is complete to prevent
+  // the flash of unsized content (tiny floor plan in top-left corner)
+  const bookingReady = !isBooking || sizingDoneRef.current;
+
   return (
     <div
       ref={containerRef}
@@ -447,6 +483,7 @@ export default function FloorPlanCanvas({
       className={`relative w-full overflow-hidden rounded-xl ${
         isBooking ? "bg-slate-800 border border-slate-700/50" : "border bg-white"
       }`}
+      style={isBooking ? { minHeight: 220, opacity: bookingReady ? 1 : 0, transition: "opacity 0.15s ease-in" } : undefined}
     >
       <Stage
         ref={stageRef as React.RefObject<Konva.Stage>}
