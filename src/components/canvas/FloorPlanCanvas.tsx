@@ -64,7 +64,11 @@ export default function FloorPlanCanvas({
   const [isMobile, setIsMobile] = useState(false);
   const initialFitRef = useRef<{ scale: number; position: { x: number; y: number } } | null>(null);
 
-  // Track whether booking sizing has been applied successfully
+  // Track whether booking sizing has been applied successfully.
+  // State (not ref) so the Stage is conditionally rendered — it does NOT
+  // exist in the DOM until sizing succeeds, eliminating any flash of
+  // unsized content. Once true, stays true (never reset on data changes).
+  const [bookingSizingDone, setBookingSizingDone] = useState(false);
   const sizingDoneRef = useRef(false);
 
   // Keep viewportCrop in a ref so the sizing callback always reads the latest value
@@ -134,6 +138,7 @@ export default function FloorPlanCanvas({
         setPosition({ x: 0, y: 0 });
         initialFitRef.current = { scale: fitScale, position: { x: 0, y: 0 } };
         sizingDoneRef.current = true;
+        setBookingSizingDone(true);
         return;
       }
 
@@ -189,6 +194,7 @@ export default function FloorPlanCanvas({
       setPosition(pos);
       initialFitRef.current = { scale: fitScale, position: pos };
       sizingDoneRef.current = true;
+      setBookingSizingDone(true);
     },
     []
   );
@@ -483,9 +489,10 @@ export default function FloorPlanCanvas({
   const isEditor = mode === "editor";
   const bgFill = isBooking ? "#1e293b" : "#fafafa";
 
-  // Hide canvas in booking mode until sizing is complete to prevent
-  // the flash of unsized content (tiny floor plan in top-left corner)
-  const bookingReady = !isBooking || sizingDoneRef.current;
+  // In booking mode, the Stage is NOT rendered until sizing is complete.
+  // This is the bulletproof solution: there is no Konva canvas in the DOM
+  // to show wrong scale/position. Only the measurement container div exists.
+  const showStage = !isBooking || bookingSizingDone;
 
   return (
     <div
@@ -494,8 +501,16 @@ export default function FloorPlanCanvas({
       className={`relative w-full overflow-hidden rounded-xl ${
         isBooking ? "bg-slate-800 border border-slate-700/50" : "border bg-white"
       }`}
-      style={isBooking ? { minHeight: 220, opacity: bookingReady ? 1 : 0, transition: "opacity 0.15s ease-in" } : undefined}
+      style={isBooking && !showStage ? { minHeight: 220 } : undefined}
     >
+      {/* Booking loading state — shown while waiting for container sizing */}
+      {isBooking && !showStage && (
+        <div className="flex items-center justify-center" style={{ minHeight: 220 }}>
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-500 border-t-slate-200" />
+        </div>
+      )}
+
+      {showStage && (
       <Stage
         ref={stageRef as React.RefObject<Konva.Stage>}
         width={stageSize.width}
@@ -573,6 +588,7 @@ export default function FloorPlanCanvas({
           )}
         </Layer>
       </Stage>
+      )}
 
       {/* Zoom indicator - editor only */}
       {!isBooking && (
