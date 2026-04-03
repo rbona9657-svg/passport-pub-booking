@@ -20,7 +20,7 @@ import InstallPrompt from "@/components/pwa/InstallPrompt";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const tabs = [
-  { href: "/admin/mobile/bookings", label: "Bookings", icon: CalendarDays },
+  { href: "/admin/mobile/bookings", label: "Daily", icon: CalendarDays },
   { href: "/admin/mobile/quick-book", label: "Quick Book", icon: Phone },
   { href: "/admin/mobile/floor-plan", label: "Floor Plan", icon: Map },
   { href: "/admin/mobile/voice-book", label: "Voice", icon: Mic },
@@ -111,7 +111,7 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
       </header>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 pb-24">
+      <main className="flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 pb-24">
         {children}
       </main>
 

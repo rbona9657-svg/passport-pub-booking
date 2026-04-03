@@ -19,8 +19,8 @@ const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/floor-plan", label: "Floor Plan", icon: Map },
   { href: "/admin/quick-book", label: "Quick Book", icon: CalendarPlus },
-  { href: "/admin/bookings", label: "All Bookings", icon: CalendarDays },
-  { href: "/admin/mobile/bookings", label: "Bookings", icon: CalendarDays },
+  { href: "/admin/bookings", label: "Manage Bookings", icon: CalendarDays },
+  { href: "/admin/mobile/bookings", label: "Daily Bookings", icon: CalendarDays },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

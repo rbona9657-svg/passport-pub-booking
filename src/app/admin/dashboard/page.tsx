@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +9,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Clock, Users, Check, X, MessageSquare, Loader2, Mic, CalendarPlus, AlertTriangle, ArrowRight, Lightbulb } from "lucide-react";
+import { CalendarDays, Clock, Users, Check, X, MessageSquare, Loader2, Mic, CalendarPlus, AlertTriangle, ArrowRight, Lightbulb, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
+import type { PubTable, VisualElement } from "@/types";
+
+const FloorPlanCanvas = dynamic(() => import("@/components/canvas/FloorPlanCanvas"), {
+  ssr: false,
+  loading: () => <div className="h-[280px] bg-muted/30 rounded-xl animate-pulse" />,
+});
 
 interface BookingWithDetails {
   id: string;
@@ -24,6 +32,7 @@ interface BookingWithDetails {
   comment: string | null;
   createdAt: string;
   tableId: string;
+  createdByAdmin?: boolean;
   table: { id?: string; tableNumber: string; seats: number };
   user: { name: string | null; email: string } | null;
 }
@@ -34,9 +43,41 @@ interface AvailableTable {
   seats: number;
 }
 
+function toLocalDateString(d: Date) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function groupByTime(bookings: BookingWithDetails[]) {
+  const groups: Record<string, BookingWithDetails[]> = {};
+  for (const b of bookings) {
+    const hour = b.arrivalTime.slice(0, 5);
+    if (!groups[hour]) groups[hour] = [];
+    groups[hour].push(b);
+  }
+  return Object.entries(groups).sort(([a], [b]) => {
+    const aNum = parseInt(a.replace(":", ""));
+    const bNum = parseInt(b.replace(":", ""));
+    const aAdj = aNum < 600 ? aNum + 2400 : aNum;
+    const bAdj = bNum < 600 ? bNum + 2400 : bNum;
+    return aAdj - bAdj;
+  });
+}
+
+const statusColors: Record<string, string> = {
+  pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30",
+  approved: "bg-green-500/10 text-green-500 border-green-500/30",
+  rejected: "bg-red-500/10 text-red-500 border-red-500/30",
+  cancelled: "bg-gray-500/10 text-gray-500 border-gray-500/30",
+};
+
 export default function AdminDashboard() {
-  const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
+  const [pendingBookings, setPendingBookings] = useState<BookingWithDetails[]>([]);
+  const [todayBookings, setTodayBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [todayLoading, setTodayLoading] = useState(true);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -45,18 +86,24 @@ export default function AdminDashboard() {
   const [approveAdminNote, setApproveAdminNote] = useState("");
   const [availableTables, setAvailableTables] = useState<AvailableTable[]>([]);
   const [tablesLoading, setTablesLoading] = useState(false);
-  // Per-card inline table reassignment
   const [cardTableOverrides, setCardTableOverrides] = useState<Record<string, string>>({});
   const [expandedReassign, setExpandedReassign] = useState<string | null>(null);
   const [cardAvailableTables, setCardAvailableTables] = useState<Record<string, AvailableTable[]>>({});
+  // Floor plan state
+  const [floorTables, setFloorTables] = useState<PubTable[]>([]);
+  const [floorElements, setFloorElements] = useState<VisualElement[]>([]);
+  const [viewportCrop, setViewportCrop] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const { toast } = useToast();
 
-  const fetchBookings = useCallback(async () => {
+  const today = toLocalDateString(new Date());
+
+  const fetchPendingBookings = useCallback(async () => {
     try {
       const res = await fetch("/api/bookings?status=pending");
       if (res.ok) {
         const data = await res.json();
-        setBookings(data);
+        setPendingBookings(data);
       }
     } catch {
       toast({ title: "Error", description: "Failed to load bookings", variant: "destructive" });
@@ -65,40 +112,82 @@ export default function AdminDashboard() {
     }
   }, [toast]);
 
+  const fetchTodayBookings = useCallback(async () => {
+    setTodayLoading(true);
+    try {
+      const res = await fetch(`/api/bookings?date=${today}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTodayBookings(data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setTodayLoading(false);
+    }
+  }, [today]);
+
   useEffect(() => {
-    fetchBookings();
-    const interval = setInterval(fetchBookings, 30000);
+    fetchPendingBookings();
+    fetchTodayBookings();
+    const interval = setInterval(() => {
+      fetchPendingBookings();
+      fetchTodayBookings();
+    }, 30000);
     return () => clearInterval(interval);
-  }, [fetchBookings]);
+  }, [fetchPendingBookings, fetchTodayBookings]);
+
+  // Fetch floor plan
+  useEffect(() => {
+    fetch("/api/floor-plan")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) {
+          setFloorTables(data.tables || []);
+          setFloorElements(data.visualElements || []);
+          if (data.viewportConfig?.crop) {
+            setViewportCrop(data.viewportConfig.crop);
+          }
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  // Compute table statuses from today's bookings
+  useEffect(() => {
+    const statusMap: Record<string, "available" | "pending" | "booked"> = {};
+    for (const t of floorTables) {
+      statusMap[t.id] = "available";
+    }
+    for (const b of todayBookings) {
+      if (b.status === "approved") {
+        statusMap[b.tableId] = "booked";
+      } else if (b.status === "pending" && statusMap[b.tableId] !== "booked") {
+        statusMap[b.tableId] = "pending";
+      }
+    }
+    setTableStatuses(statusMap);
+  }, [todayBookings, floorTables]);
 
   const fetchAvailableTables = async (booking: BookingWithDetails) => {
     setTablesLoading(true);
     try {
-      // Get floor plan with all tables
       const fpRes = await fetch("/api/floor-plan");
       if (!fpRes.ok) return;
       const fpData = await fpRes.json();
       const floorPlanId = fpData.id;
-
       const allTables: AvailableTable[] = (fpData.tables || []).map((t: { id: string; tableNumber: string; seats: number }) => ({
-        id: t.id,
-        tableNumber: t.tableNumber,
-        seats: t.seats,
+        id: t.id, tableNumber: t.tableNumber, seats: t.seats,
       }));
-
-      // Get availability for this date/time
       const res = await fetch(
         `/api/tables/availability?floorPlanId=${floorPlanId}&date=${booking.bookingDate}&arrival=${booking.arrivalTime}&departure=${booking.departureTime}`
       );
       if (!res.ok) return;
       const statusMap = await res.json();
-
-      // Filter to available tables + the currently assigned table
       const currentTableId = booking.table?.id || booking.tableId;
       const available = allTables.filter(
         (t) => statusMap[t.id] === "available" || t.id === currentTableId
       );
-      // Sort by best-fit: closest seats >= guestCount first
       available.sort((a, b) => {
         const aDiff = a.seats - booking.guestCount;
         const bDiff = b.seats - booking.guestCount;
@@ -109,7 +198,7 @@ export default function AdminDashboard() {
       });
       setAvailableTables(available);
     } catch {
-      // Silently fail — admin can still approve without changing table
+      // silent
     } finally {
       setTablesLoading(false);
     }
@@ -150,7 +239,6 @@ export default function AdminDashboard() {
 
   const openApproveDialog = (booking: BookingWithDetails) => {
     setApproveBooking(booking);
-    // Use card-level override if admin already picked a table on the card
     setApproveTableId(cardTableOverrides[booking.id] || booking.table?.id || booking.tableId);
     setApproveAdminNote("");
     fetchAvailableTables(booking);
@@ -163,7 +251,6 @@ export default function AdminDashboard() {
     try {
       const currentTableId = approveBooking.table?.id || approveBooking.tableId;
       const tableChanged = approveTableId !== currentTableId;
-
       const res = await fetch(`/api/bookings/${id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,7 +275,8 @@ export default function AdminDashboard() {
             variant: "destructive",
           });
         }
-        setBookings((prev) => prev.filter((b) => b.id !== id));
+        setPendingBookings((prev) => prev.filter((b) => b.id !== id));
+        fetchTodayBookings();
         setApproveBooking(null);
       } else {
         const data = await res.json();
@@ -212,7 +300,8 @@ export default function AdminDashboard() {
       });
       if (res.ok) {
         toast({ title: "Booking Rejected", description: "The guest has been notified." });
-        setBookings((prev) => prev.filter((b) => b.id !== rejectId));
+        setPendingBookings((prev) => prev.filter((b) => b.id !== rejectId));
+        fetchTodayBookings();
       }
     } catch {
       toast({ title: "Error", description: "Failed to reject", variant: "destructive" });
@@ -223,14 +312,14 @@ export default function AdminDashboard() {
     }
   };
 
-  // Detect merged table groups by [GROUP:uuid] tag in comments
+  // Detect merged table groups
   const extractGroupId = (comment: string | null): string | null => {
     if (!comment) return null;
     const match = comment.match(/\[GROUP:([a-f0-9-]+)\]/);
     return match ? match[1] : null;
   };
 
-  const groupCounts = bookings.reduce<Record<string, number>>((acc, b) => {
+  const groupCounts = pendingBookings.reduce<Record<string, number>>((acc, b) => {
     const gid = extractGroupId(b.comment);
     if (gid) acc[gid] = (acc[gid] || 0) + 1;
     return acc;
@@ -239,18 +328,24 @@ export default function AdminDashboard() {
   const getGroupIndex = (booking: BookingWithDetails): { groupId: string; index: number; total: number } | null => {
     const gid = extractGroupId(booking.comment);
     if (!gid || !groupCounts[gid] || groupCounts[gid] < 2) return null;
-    const groupBookings = bookings.filter((b) => extractGroupId(b.comment) === gid);
+    const groupBookings = pendingBookings.filter((b) => extractGroupId(b.comment) === gid);
     const idx = groupBookings.findIndex((b) => b.id === booking.id);
     return { groupId: gid, index: idx + 1, total: groupCounts[gid] };
   };
 
-  const pendingCount = bookings.length;
+  const pendingCount = pendingBookings.length;
+
+  // Today's active bookings (not cancelled/rejected)
+  const todayActive = todayBookings.filter((b) => b.status !== "cancelled" && b.status !== "rejected");
+  const todayApproved = todayActive.filter((b) => b.status === "approved").length;
+  const todayPending = todayActive.filter((b) => b.status === "pending").length;
+  const todayGrouped = groupByTime(todayActive);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Manage incoming booking requests</p>
+        <p className="text-muted-foreground">Overview & incoming booking requests</p>
       </div>
 
       {/* Quick Actions */}
@@ -284,6 +379,121 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
+                <Check className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{todayApproved}</p>
+                <p className="text-sm text-muted-foreground">Today Confirmed</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+                <Users className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{todayActive.length}</p>
+                <p className="text-sm text-muted-foreground">Today Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Today's Floor Plan */}
+      {floorTables.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Today&apos;s Floor Plan</h2>
+            <div className="flex gap-2">
+              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
+                {todayApproved} confirmed
+              </Badge>
+              {todayPending > 0 && (
+                <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/30">
+                  {todayPending} pending
+                </Badge>
+              )}
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <FloorPlanCanvas
+              mode="booking"
+              tables={floorTables}
+              visualElements={floorElements}
+              tableStatuses={tableStatuses}
+              viewportCrop={viewportCrop}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Today's Bookings Cards */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Today&apos;s Bookings</h2>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchTodayBookings}>
+            <RefreshCw className={cn("h-4 w-4", todayLoading && "animate-spin")} />
+          </Button>
+        </div>
+        {todayLoading && todayActive.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : todayActive.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <CalendarDays className="mx-auto h-8 w-8 mb-2 opacity-50" />
+              <p className="text-muted-foreground">No bookings for today</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {todayGrouped.map(([time, items]) => (
+              <div key={time}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">{time}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {items.map((booking) => (
+                    <Card key={booking.id} className="overflow-hidden">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-medium text-sm truncate">{booking.reservationName}</span>
+                            <Badge variant="outline" className={cn("text-[10px] shrink-0", statusColors[booking.status])}>
+                              {booking.status}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground ml-2">
+                            <span className="font-medium text-foreground">T{booking.table.tableNumber}</span>
+                            <span className="flex items-center gap-0.5">
+                              <Users className="h-3 w-3" />
+                              {booking.guestCount}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          <span>{booking.arrivalTime.slice(0, 5)} - {booking.departureTime.slice(0, 5)}</span>
+                          {booking.createdByAdmin && <Badge variant="secondary" className="text-[10px] h-4">Admin</Badge>}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Pending Bookings */}
@@ -293,7 +503,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : bookings.length === 0 ? (
+        ) : pendingBookings.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-muted-foreground">No pending bookings</p>
@@ -301,7 +511,7 @@ export default function AdminDashboard() {
           </Card>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {bookings.map((booking) => {
+            {pendingBookings.map((booking) => {
               const utilization = Math.round((booking.guestCount / booking.table.seats) * 100);
               const lowUtil = utilization < 50;
               const veryLowUtil = utilization < 25;
@@ -458,13 +668,11 @@ export default function AdminDashboard() {
           </DialogHeader>
           {approveBooking && (
             <div className="space-y-4">
-              {/* Current booking info */}
               <div className="text-sm space-y-1">
                 <p><strong>{approveBooking.reservationName}</strong> — {approveBooking.guestCount} guests</p>
                 <p className="text-muted-foreground">{approveBooking.bookingDate} &middot; {approveBooking.arrivalTime}–{approveBooking.departureTime}</p>
               </div>
 
-              {/* Current table utilization */}
               {(() => {
                 const util = Math.round((approveBooking.guestCount / approveBooking.table.seats) * 100);
                 const isLow = util < 50;
@@ -479,7 +687,6 @@ export default function AdminDashboard() {
                 );
               })()}
 
-              {/* Best-fit suggestion */}
               {!tablesLoading && availableTables.length > 0 && (() => {
                 const currentId = approveBooking.table?.id || approveBooking.tableId;
                 const bestFit = availableTables.find(
@@ -511,7 +718,6 @@ export default function AdminDashboard() {
                 );
               })()}
 
-              {/* Table reassignment dropdown */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Assign Table</Label>
                 {tablesLoading ? (
@@ -542,7 +748,6 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              {/* Admin note to guest */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Note to guest (optional)</Label>
                 <Textarea

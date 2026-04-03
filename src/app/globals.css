@@ -138,6 +138,16 @@ input[type="date"]::-moz-calendar-picker-indicator {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Smooth momentum scrolling for mobile */
+@media (max-width: 768px) {
+  main,
+  .overflow-y-auto,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+}
+
 /* Hero image gradual blur animation: sharp -> blurred -> sharp */
 @keyframes hero-blur-pulse {
   0%, 100% {
