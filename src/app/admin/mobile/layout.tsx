@@ -63,7 +63,7 @@ export default function MobileAdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 flex h-12 items-center justify-between border-b border-border/40 bg-background/80 px-4 backdrop-blur-xl pt-[env(safe-area-inset-top,0px)]">
         <div className="flex items-center gap-2">
