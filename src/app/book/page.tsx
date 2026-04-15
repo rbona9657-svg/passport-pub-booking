@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Header } from "@/components/layout/header";
@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format, parse } from "date-fns";
 import { useToast } from "@/components/ui/use-toast";
-import { PUB_HOURS } from "@/lib/constants";
+import { PUB_HOURS, getHoursForDay } from "@/lib/constants";
 import { toMinutesSinceOpen } from "@/lib/validations";
 import {
   CalendarDays,
@@ -117,13 +117,31 @@ function BookPage() {
     }
   }, [paramDate]);
 
+  // Compute bookable hours for the selected date
+  const availableHours = useMemo(() => {
+    const d = parse(bookingDate, "yyyy-MM-dd", new Date());
+    return getHoursForDay(d.getDay());
+  }, [bookingDate]);
+
+  // When the date changes, clamp arrival & departure to the new available hours
+  useEffect(() => {
+    if (availableHours.length === 0) return;
+    if (!(availableHours as string[]).includes(arrivalTime)) {
+      setArrivalTime(availableHours[0]);
+    }
+    if (!(availableHours as string[]).includes(departureTime)) {
+      setDepartureTime(availableHours[Math.min(2, availableHours.length - 1)]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableHours]);
+
   const handleArrivalChange = (val: string) => {
     const hour = val as PubHour;
     setArrivalTime(hour);
     if (toMinutesSinceOpen(departureTime) <= toMinutesSinceOpen(hour)) {
-      const idx = PUB_HOURS.indexOf(hour);
-      if (idx >= 0 && idx < PUB_HOURS.length - 1) {
-        setDepartureTime(PUB_HOURS[idx + 1]);
+      const idx = availableHours.indexOf(hour);
+      if (idx >= 0 && idx < availableHours.length - 1) {
+        setDepartureTime(availableHours[idx + 1]);
       }
     }
   };
@@ -132,9 +150,9 @@ function BookPage() {
     const hour = val as PubHour;
     setDepartureTime(hour);
     if (toMinutesSinceOpen(hour) <= toMinutesSinceOpen(arrivalTime)) {
-      const idx = PUB_HOURS.indexOf(hour);
+      const idx = availableHours.indexOf(hour);
       if (idx > 0) {
-        setArrivalTime(PUB_HOURS[idx - 1]);
+        setArrivalTime(availableHours[idx - 1]);
       }
     }
   };
@@ -173,7 +191,7 @@ function BookPage() {
       .then((data) => {
         if (data && !data.error) {
           setTableStatuses(data);
-          if (selectedTableRef.current && data[selectedTableRef.current] === "booked") {
+          if (selectedTableRef.current && data[selectedTableRef.current] !== "available") {
             setSelectedTableId(null);
           }
         }
@@ -362,7 +380,7 @@ function BookPage() {
 
   const handleTableSelect = (tableId: string) => {
     const status = tableStatuses[tableId];
-    if (status === "booked") return;
+    if (status !== "available") return;
     setSelectedTableId(tableId === selectedTableId ? null : tableId);
     setSubmitted(false);
     setCapacityWarning(null);
@@ -422,7 +440,7 @@ function BookPage() {
                 <Select value={arrivalTime} onValueChange={handleArrivalChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {PUB_HOURS.map((h) => (
+                    {availableHours.map((h) => (
                       <SelectItem key={h} value={h}>{h}</SelectItem>
                     ))}
                   </SelectContent>
@@ -436,7 +454,7 @@ function BookPage() {
                 <Select value={departureTime} onValueChange={handleDepartureChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {PUB_HOURS.map((h) => (
+                    {availableHours.map((h) => (
                       <SelectItem key={h} value={h}>{h}</SelectItem>
                     ))}
                   </SelectContent>

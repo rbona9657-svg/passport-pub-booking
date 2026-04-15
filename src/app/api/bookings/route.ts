@@ -3,8 +3,8 @@ import { auth } from "@/lib/auth";
 import { createBooking, getAdminBookings, getUserBookings, getExistingBookingsForEmail } from "@/lib/db/queries/bookings";
 import { createBookingSchema, createBookingAdminSchema, toMinutesSinceOpen } from "@/lib/validations";
 import { db } from "@/lib/db";
-import { tables } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { bookings, tables } from "@/lib/db/schema";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { sendPushToAdmins } from "@/lib/push";
 import { sendBookingPending, sendAdminNewBooking } from "@/lib/email";
 import { getLocalToday, isValidPubHour } from "@/lib/constants";
@@ -160,20 +160,54 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Check for overlapping bookings on the same table+date+time
+    const tableConflicts = await db
+      .select({ id: bookings.id })
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.tableId, tableId),
+          eq(bookings.bookingDate, bookingDate),
+          inArray(bookings.status, ["approved", "pending"]),
+          sql`booking_time_range(${bookings.arrivalTime}, ${bookings.departureTime}) && booking_time_range(${arrivalTime}::time, ${departureTime}::time)`
+        )
+      )
+      .limit(1);
+
+    if (tableConflicts.length > 0) {
+      return NextResponse.json(
+        { error: "Ez az asztal ebben az időpontban már foglalt vagy foglalás alatt áll." },
+        { status: 409 }
+      );
+    }
+
     // Create the booking
-    const booking = await createBooking({
-      userId: session?.user?.id || null,
-      tableId,
-      reservationName,
-      guestCount,
-      guestEmail,
-      bookingDate,
-      arrivalTime,
-      departureTime,
-      comment,
-      createdByAdmin: adminAutoApprove,
-      status: adminAutoApprove ? "approved" : "pending",
-    });
+    let booking;
+    try {
+      booking = await createBooking({
+        userId: session?.user?.id || null,
+        tableId,
+        reservationName,
+        guestCount,
+        guestEmail,
+        bookingDate,
+        arrivalTime,
+        departureTime,
+        comment,
+        createdByAdmin: adminAutoApprove,
+        status: adminAutoApprove ? "approved" : "pending",
+      });
+    } catch (dbError: unknown) {
+      // Catch the exclusion constraint violation as a fallback
+      const msg = dbError instanceof Error ? dbError.message : "";
+      if (msg.includes("booking_no_overlap")) {
+        return NextResponse.json(
+          { error: "Ez az asztal ebben az időpontban már foglalt vagy foglalás alatt áll." },
+          { status: 409 }
+        );
+      }
+      throw dbError;
+    }
 
     // Send push notification to admins (non-blocking)
     sendPushToAdmins({
