@@ -97,6 +97,11 @@ export default function AdminDashboard() {
   const { toast } = useToast();
 
   const today = toLocalDateString(new Date());
+  const yesterday = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return toLocalDateString(d);
+  })();
 
   const fetchPendingBookings = useCallback(async () => {
     try {
@@ -115,17 +120,34 @@ export default function AdminDashboard() {
   const fetchTodayBookings = useCallback(async () => {
     setTodayLoading(true);
     try {
-      const res = await fetch(`/api/bookings?date=${today}`);
-      if (res.ok) {
-        const data = await res.json();
-        setTodayBookings(data);
+      // Fetch today's bookings + yesterday's (to catch overnight bookings)
+      const [todayRes, yesterdayRes] = await Promise.all([
+        fetch(`/api/bookings?date=${today}`),
+        fetch(`/api/bookings?date=${yesterday}`),
+      ]);
+      let merged: BookingWithDetails[] = [];
+      if (todayRes.ok) {
+        merged = await todayRes.json();
       }
+      // Add yesterday's bookings that cross midnight (arrivalTime > departureTime)
+      if (yesterdayRes.ok) {
+        const yesterdayData: BookingWithDetails[] = await yesterdayRes.json();
+        const overnight = yesterdayData.filter(
+          (b) => b.arrivalTime > b.departureTime
+        );
+        // Avoid duplicates
+        const todayIds = new Set(merged.map((b) => b.id));
+        for (const b of overnight) {
+          if (!todayIds.has(b.id)) merged.push(b);
+        }
+      }
+      setTodayBookings(merged);
     } catch {
       // ignore
     } finally {
       setTodayLoading(false);
     }
-  }, [today]);
+  }, [today, yesterday]);
 
   useEffect(() => {
     fetchPendingBookings();

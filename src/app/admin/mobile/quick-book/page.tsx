@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { PUB_HOURS } from "@/lib/constants";
+import { PUB_HOURS, getHoursForDay } from "@/lib/constants";
 import { toMinutesSinceOpen } from "@/lib/validations";
 import {
   Check,
@@ -39,12 +39,23 @@ export default function MobileQuickBookPage() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const availableHours = useMemo(() => {
+    return getHoursForDay(new Date(bookingDate + "T12:00:00").getDay());
+  }, [bookingDate]);
+
+  useEffect(() => {
+    if (availableHours.length === 0) return;
+    if (!(availableHours as string[]).includes(arrivalTime)) setArrivalTime(availableHours[0]);
+    if (!(availableHours as string[]).includes(departureTime)) setDepartureTime(availableHours[Math.min(2, availableHours.length - 1)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableHours]);
+
   const handleArrivalChange = (val: string) => {
     setArrivalTime(val);
     if (toMinutesSinceOpen(departureTime) <= toMinutesSinceOpen(val)) {
-      const idx = PUB_HOURS.indexOf(val as typeof PUB_HOURS[number]);
-      if (idx >= 0 && idx < PUB_HOURS.length - 1) {
-        setDepartureTime(PUB_HOURS[idx + 1]);
+      const idx = availableHours.indexOf(val as typeof PUB_HOURS[number]);
+      if (idx >= 0 && idx < availableHours.length - 1) {
+        setDepartureTime(availableHours[idx + 1]);
       }
     }
   };
@@ -52,9 +63,9 @@ export default function MobileQuickBookPage() {
   const handleDepartureChange = (val: string) => {
     setDepartureTime(val);
     if (toMinutesSinceOpen(val) <= toMinutesSinceOpen(arrivalTime)) {
-      const idx = PUB_HOURS.indexOf(val as typeof PUB_HOURS[number]);
+      const idx = availableHours.indexOf(val as typeof PUB_HOURS[number]);
       if (idx > 0) {
-        setArrivalTime(PUB_HOURS[idx - 1]);
+        setArrivalTime(availableHours[idx - 1]);
       }
     }
   };
@@ -184,7 +195,7 @@ export default function MobileQuickBookPage() {
               onChange={(e) => handleArrivalChange(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {PUB_HOURS.map((h) => (
+              {availableHours.map((h) => (
                 <option key={h} value={h}>{h}</option>
               ))}
             </select>
@@ -196,7 +207,7 @@ export default function MobileQuickBookPage() {
               onChange={(e) => handleDepartureChange(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {PUB_HOURS.map((h) => (
+              {availableHours.map((h) => (
                 <option key={h} value={h}>{h}</option>
               ))}
             </select>

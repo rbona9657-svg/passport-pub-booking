@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { PUB_HOURS } from "@/lib/constants";
+import { PUB_HOURS, getHoursForDay } from "@/lib/constants";
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
 import { parseBookingFromText, type ParsedBooking } from "@/lib/voice-parser";
 import {
@@ -82,6 +82,17 @@ export default function MobileVoiceBookPage() {
   const [editArrival, setEditArrival] = useState("19:00");
   const [editDeparture, setEditDeparture] = useState("21:00");
   const [editTableId, setEditTableId] = useState<string | null>(null);
+
+  const availableHours = useMemo(() => {
+    return getHoursForDay(new Date(editDate + "T12:00:00").getDay());
+  }, [editDate]);
+
+  useEffect(() => {
+    if (availableHours.length === 0) return;
+    if (!(availableHours as string[]).includes(editArrival)) setEditArrival(availableHours[0]);
+    if (!(availableHours as string[]).includes(editDeparture)) setEditDeparture(availableHours[Math.min(2, availableHours.length - 1)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableHours]);
 
   // Sync parsed results into editable fields
   useEffect(() => {
@@ -326,7 +337,7 @@ export default function MobileVoiceBookPage() {
                     onChange={(e) => setEditArrival(e.target.value)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    {PUB_HOURS.map((h) => (
+                    {availableHours.map((h) => (
                       <option key={h} value={h}>{h}</option>
                     ))}
                   </select>
@@ -341,7 +352,7 @@ export default function MobileVoiceBookPage() {
                     onChange={(e) => setEditDeparture(e.target.value)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    {PUB_HOURS.map((h) => (
+                    {availableHours.map((h) => (
                       <option key={h} value={h}>{h}</option>
                     ))}
                   </select>
