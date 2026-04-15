@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createBooking, getAdminBookings, getUserBookings, getExistingBookingsForEmail } from "@/lib/db/queries/bookings";
-import { createBookingSchema, createBookingAdminSchema } from "@/lib/validations";
+import { createBookingSchema, createBookingAdminSchema, toMinutesSinceOpen } from "@/lib/validations";
 import { db } from "@/lib/db";
 import { tables } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { sendPushToAdmins } from "@/lib/push";
 import { sendBookingPending, sendAdminNewBooking } from "@/lib/email";
-import { getLocalToday } from "@/lib/constants";
+import { getLocalToday, isValidPubHour } from "@/lib/constants";
 
 // Simple in-memory rate limiting: max 5 bookings per IP per hour
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -109,18 +109,36 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate departure is after arrival (accounting for midnight crossing)
-    // For midnight-crossing bookings (e.g., 23:00-01:00), departure < arrival is valid
     if (arrivalTime === departureTime) {
       return NextResponse.json({ error: "Departure time must be different from arrival time" }, { status: 400 });
+    }
+
+    // Validate times fall within opening hours for the booking day
+    const bookingDayOfWeek = new Date(bookingDate + "T12:00:00").getDay();
+    if (!isValidPubHour(arrivalTime, bookingDayOfWeek)) {
+      return NextResponse.json(
+        { error: "Az érkezési idő a nyitvatartási időn kívül esik ezen a napon." },
+        { status: 400 }
+      );
+    }
+    if (!isValidPubHour(departureTime, bookingDayOfWeek)) {
+      return NextResponse.json(
+        { error: "A távozási idő a nyitvatartási időn kívül esik ezen a napon." },
+        { status: 400 }
+      );
     }
 
     // Check for existing bookings with same email on the same date
     if (guestEmail) {
       const existingBookings = await getExistingBookingsForEmail(guestEmail, bookingDate);
       if (existingBookings.length > 0) {
-        // Check for time overlaps to provide stronger warning
+        // Check for time overlaps using midnight-aware comparison
         const hasTimeOverlap = existingBookings.some((b) => {
-          return b.arrivalTime < departureTime && b.departureTime > arrivalTime;
+          const bFrom = toMinutesSinceOpen(b.arrivalTime);
+          const bTo   = toMinutesSinceOpen(b.departureTime);
+          const nFrom = toMinutesSinceOpen(arrivalTime);
+          const nTo   = toMinutesSinceOpen(departureTime);
+          return bFrom < nTo && nFrom < bTo;
         });
 
         return NextResponse.json(

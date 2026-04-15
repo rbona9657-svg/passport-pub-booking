@@ -29,15 +29,9 @@ export async function getTableStatuses(
         eq(tables.floorPlanId, floorPlanId),
         eq(bookings.bookingDate, date),
         inArray(bookings.status, ["approved", "pending"]),
-        // Handle midnight crossing for time overlap
-        sql`(
-          CASE
-            WHEN ${bookings.arrivalTime} < ${bookings.departureTime} THEN
-              ${bookings.arrivalTime} < ${departureTime}::time AND ${bookings.departureTime} > ${arrivalTime}::time
-            ELSE
-              (${bookings.arrivalTime} < ${departureTime}::time OR ${bookings.departureTime} > ${arrivalTime}::time)
-          END
-        )`
+        // Use the immutable booking_time_range() function for correct
+        // midnight-crossing overlap detection on BOTH sides
+        sql`booking_time_range(${bookings.arrivalTime}, ${bookings.departureTime}) && booking_time_range(${arrivalTime}::time, ${departureTime}::time)`
       )
     );
 
