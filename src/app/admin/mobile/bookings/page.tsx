@@ -92,42 +92,17 @@ export default function MobileBookingsPage() {
   const [tableStatuses, setTableStatuses] = useState<Record<string, "available" | "pending" | "booked">>({});
   const { toast } = useToast();
 
-  const previousDate = (() => {
-    const d = new Date(date + "T12:00:00");
-    d.setDate(d.getDate() - 1);
-    return toLocalDateString(d);
-  })();
-
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch selected date + previous day (to catch overnight bookings)
-      const [dateRes, prevRes] = await Promise.all([
-        fetch(`/api/bookings?date=${date}`),
-        fetch(`/api/bookings?date=${previousDate}`),
-      ]);
-      let merged: BookingWithDetails[] = [];
-      if (dateRes.ok) {
-        merged = await dateRes.json();
-      }
-      // Add previous day's bookings that cross midnight (arrivalTime > departureTime)
-      if (prevRes.ok) {
-        const prevData: BookingWithDetails[] = await prevRes.json();
-        const overnight = prevData.filter(
-          (b) => b.arrivalTime > b.departureTime
-        );
-        const dateIds = new Set(merged.map((b) => b.id));
-        for (const b of overnight) {
-          if (!dateIds.has(b.id)) merged.push(b);
-        }
-      }
-      setBookings(merged);
+      const res = await fetch(`/api/bookings?date=${date}`);
+      if (res.ok) setBookings(await res.json());
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, [date, previousDate]);
+  }, [date]);
 
   useEffect(() => {
     fetchBookings();

@@ -247,24 +247,13 @@ export async function getPendingBookingsCount() {
 
 export async function getTodayBookingsCount() {
   const today = getLocalToday();
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const yesterday = getLocalToday(d);
-
-  // Count today's bookings + yesterday's overnight bookings (arrival > departure = crosses midnight)
   const result = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(bookings)
     .where(
       and(
-        inArray(bookings.status, ["approved", "pending"]),
-        sql`(
-          ${bookings.bookingDate} = ${today}
-          OR (
-            ${bookings.bookingDate} = ${yesterday}
-            AND ${bookings.arrivalTime} > ${bookings.departureTime}
-          )
-        )`
+        eq(bookings.bookingDate, today),
+        inArray(bookings.status, ["approved", "pending"])
       )
     );
 
